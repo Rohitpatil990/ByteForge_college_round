@@ -33,6 +33,9 @@ StepType = Literal[
     "agent_thought",
     "tool_call",
     "tool_result",
+    "tool_attempt",
+    "tool_executed",
+    "guard_decision",
     "final_reply",
     "error",
 ]
@@ -42,6 +45,9 @@ VALID_STEP_TYPES: Set[str] = {
     "agent_thought",
     "tool_call",
     "tool_result",
+    "tool_attempt",
+    "tool_executed",
+    "guard_decision",
     "final_reply",
     "error",
 }
@@ -63,7 +69,7 @@ class TraceStep(TypedDict, total=False):
 class Trace(TypedDict, total=False):
     target_id: str
     kind: str  # e.g., "attack", "benign", "baseline"
-    variant_source: str  # e.g., "seed", "generated_v1", "mutation"
+    variant_source: Optional[str]  # None/null for seeds, "generated" or "recorded" for variants
     parent_run_id: Optional[str]  # None for seeds/root runs, ID of ancestor run otherwise
     round: int  # Iteration/round number (0-indexed or 1-indexed)
     steps: List[TraceStep]
@@ -187,8 +193,24 @@ def validate_trace(data: Any) -> Trace:
     if not isinstance(data["kind"], str) or not data["kind"].strip():
         raise ValueError("Trace 'kind' must be a non-empty string")
 
-    if not isinstance(data["variant_source"], str) or not data["variant_source"].strip():
-        raise ValueError("Trace 'variant_source' must be a non-empty string")
+    # variant_source: None/null for seeds, "generated" or "recorded" for variants
+    v_src = data["variant_source"]
+    if v_src is None:
+        if data.get("kind") in ("variant", "recorded"):
+            raise ValueError(f"Trace with kind {data['kind']!r} cannot have variant_source as None")
+    elif isinstance(v_src, str):
+        v_src_clean = v_src.strip().lower()
+        if not v_src_clean:
+            raise ValueError("Trace 'variant_source' must not be empty whitespace")
+        valid_sources = {"seed", "generated", "recorded"}
+        if v_src_clean not in valid_sources and not v_src_clean.startswith("generated"):
+            raise ValueError(
+                f"Invalid variant_source {v_src!r}. Must be one of {sorted(valid_sources)} or None for seeds"
+            )
+    else:
+        raise ValueError(
+            f"Trace 'variant_source' must be a string or None, got {type(v_src).__name__}"
+        )
 
     if data["parent_run_id"] is not None and not isinstance(data["parent_run_id"], str):
         raise ValueError("Trace 'parent_run_id' must be None or a string")
