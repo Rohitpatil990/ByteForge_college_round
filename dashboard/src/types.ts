@@ -52,7 +52,48 @@ export interface Finding {
   description: string;
   severity?: 'critical' | 'high' | 'medium' | 'low';
   trace_id?: string;
-  details?: Record<string, any>;
+  details?: {
+    occurrences?: number;
+    first_seen_at?: string;
+    last_seen_at?: string;
+    associated_run_ids?: string[];
+    dedup_key?: string;
+    latest_run_id?: string;
+    has_adaptive_discovery?: boolean;
+    reason?: string;
+    tool_name?: string;
+    evidence_steps?: number[];
+    matched_canary?: string;
+    [key: string]: any;
+  };
+}
+
+export interface ChallengeResult {
+  challenge_run_id: string | null;
+  attempt_number?: number;
+  round: number;
+  strategy?: string;
+  strategy_name?: string;
+  prompt?: string;
+  diff_summary?: string;
+  parent_run_id?: string | null;
+  feedback?: {
+    type: 'bot_reply' | 'deny_reason';
+    rule?: string;
+    text: string;
+  } | null;
+  variant_source?: string;
+  verdict?: string;
+  rule_fired?: string;
+  is_adaptive_discovery?: boolean;
+  finding?: Finding | null;
+  execution_mode?: string;
+  generation_mode?: string;
+  is_model_generated?: boolean;
+  exhausted?: boolean;
+  message?: string;
+  attempted_strategies?: string[];
+  total_attempts?: number;
 }
 
 export interface Defense {

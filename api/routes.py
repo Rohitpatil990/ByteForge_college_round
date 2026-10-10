@@ -546,12 +546,26 @@ def challenge_defenses(
             detail="No initial runs found to challenge. Run initial tests before challenging defenses.",
         )
 
-    result = execute_adaptive_challenge(
-        assessment_id,
-        execution_mode=mode or "deterministic_simulation",
-        use_model=use_model,
-    )
-    return result
+    try:
+        result = execute_adaptive_challenge(
+            assessment_id,
+            execution_mode=mode or "deterministic_simulation",
+            use_model=use_model,
+        )
+        return result
+    except RuntimeError as rexc:
+        raise HTTPException(status_code=409, detail=str(rexc))
+
+
+@router.post("/assessments/{assessment_id}/challenge/reset", summary="Reset adaptive challenge attempt history")
+def reset_adaptive_challenge(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+) -> Dict[str, Any]:
+    """Reset adaptive challenge runs and allow retesting strategy pool from attempt 1."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+    return STORE.reset_challenge_runs(assessment_id)
 
 
 @router.post("/assessments/{assessment_id}/adaptive-loop", summary="Run multi-round adaptive red-team and defense loop")

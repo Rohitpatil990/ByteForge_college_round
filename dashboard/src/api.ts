@@ -2,6 +2,7 @@ import {
   AssessmentReport,
   AssessmentSummary,
   ChainVerification,
+  ChallengeResult,
   Defense,
   DefenseCandidate,
   EvolutionResult,
@@ -78,7 +79,9 @@ export const api = {
   toggleDefense: (id: string, defense_id: string) =>
     request<Defense>(`/assessments/${id}/defenses/${defense_id}/toggle`, { method: 'POST' }),
   challengeDefenses: (id: string, mode: string = 'real_sandbox', useModel: boolean = false) =>
-    request<any>(`/assessments/${id}/challenge?mode=${mode}&use_model=${useModel}`, { method: 'POST' }),
+    request<ChallengeResult>(`/assessments/${id}/challenge?mode=${mode}&use_model=${useModel}`, { method: 'POST' }),
+  resetChallenge: (id: string) =>
+    request<{ reset: boolean; removed_challenge_runs: number }>(`/assessments/${id}/challenge/reset`, { method: 'POST' }),
   retestAssessment: (id: string, mode: string = 'real_sandbox') =>
     request<any>(`/assessments/${id}/retest?mode=${mode}`, { method: 'POST' }),
   evolveDefenses: (id: string) =>

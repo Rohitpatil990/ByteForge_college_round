@@ -484,6 +484,7 @@ export const App: React.FC = () => {
                 <RunTestsView
                   assessmentId={currentAssessment?.id || 'default'}
                   targetId={currentAssessment?.target_id || null}
+                  allRuns={runs}
                   onRunsCompleted={(newRuns) => {
                     setRuns(newRuns);
                     handleRefreshState();

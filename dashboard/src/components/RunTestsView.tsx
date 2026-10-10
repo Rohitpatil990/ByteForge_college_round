@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
 import { Run } from '../types';
 import { api } from '../api';
-import { Play, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Target, RefreshCw, Cpu, Terminal } from 'lucide-react';
+import { Play, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Target, RefreshCw, Cpu, Terminal, Zap } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
   targetId: string | null;
+  allRuns?: Run[];
   onRunsCompleted: (runs: Run[]) => void;
   onNavigate: (tab: string) => void;
 }
@@ -13,6 +14,7 @@ interface Props {
 export const RunTestsView: React.FC<Props> = ({
   assessmentId,
   targetId,
+  allRuns = [],
   onRunsCompleted,
   onNavigate,
 }) => {
@@ -47,6 +49,75 @@ export const RunTestsView: React.FC<Props> = ({
   const blockedCount = latestRuns.filter((r) => r.verdict === 'blocked').length;
   const passCount = latestRuns.filter((r) => r.verdict === 'legitimate_pass').length;
 
+  const ADAPTIVE_STRATEGIES = [
+    {
+      id: 'direct_injection',
+      name: 'Direct System Prompt Override',
+      category: 'Prompt Extraction',
+      description: 'Overrides system prompt directives to extract confidential secrets directly.',
+    },
+    {
+      id: 'indirect_context_smuggling',
+      name: 'Indirect Context Smuggling',
+      category: 'Context Injection',
+      description: 'Hides adversarial instructions inside ingested documents or customer records.',
+    },
+    {
+      id: 'internal_relay_exfiltration',
+      name: 'Internal Relay Exfiltration',
+      category: 'Policy Evasion',
+      description: 'Evades external recipient domain restrictions by routing through allowed internal addresses.',
+    },
+    {
+      id: 'role_impersonation',
+      name: 'Executive / Auditor Impersonation',
+      category: 'Privilege Escalation',
+      description: 'Impersonates elevated personnel to demand restricted customer actions.',
+    },
+    {
+      id: 'parameter_obfuscation',
+      name: 'Parameter & Format Obfuscation',
+      category: 'Filter Evasion',
+      description: 'Uses spacing, encoding, and framing variations to evade argument regex filters.',
+    },
+    {
+      id: 'multistep_memory_tampering',
+      name: 'Multi-Step Memory Tampering',
+      category: 'State Poisoning',
+      description: 'Injects unauthorized preferences and rules into persistent agent memory.',
+    },
+    {
+      id: 'forbidden_tool_probing',
+      name: 'Restricted Tool Probing',
+      category: 'Scope Probing',
+      description: 'Probes destructive or out-of-scope tools outside permitted capabilities.',
+    },
+  ];
+
+  // Identify attempted strategies in this session
+  const combinedRuns = [...allRuns, ...latestRuns];
+  const adaptiveRuns = combinedRuns.filter(
+    (r) => r.variant_source === 'generated' || (r.round && r.round > 0)
+  );
+
+  const attemptedStrategyMap = new Map<string, Run[]>();
+  adaptiveRuns.forEach((r) => {
+    let strat = r.metadata?.strategy;
+    if (!strat && r.name && r.name.toLowerCase().includes('round')) {
+      const parts = r.name.split(':');
+      if (parts.length > 1) {
+        strat = parts[1].trim().toLowerCase().replace(/\s+/g, '_');
+      }
+    }
+    if (strat) {
+      const existing = attemptedStrategyMap.get(strat) || [];
+      existing.push(r);
+      attemptedStrategyMap.set(strat, existing);
+    }
+  });
+
+  const attemptedCount = ADAPTIVE_STRATEGIES.filter((s) => attemptedStrategyMap.has(s.id)).length;
+
   return (
     <div>
       <div className="page-header">
@@ -76,18 +147,18 @@ export const RunTestsView: React.FC<Props> = ({
       <div className="card">
         <div className="card-header">
           <div>
-            <h2 className="card-title">Security Test Suite</h2>
+            <h2 className="card-title">Fixed Seed Benchmark Suite</h2>
             <p className="card-subtitle">
               Target Agent: <strong style={{ color: 'var(--primary)' }}>{targetId || 'None'}</strong>
             </p>
           </div>
-          <span className="badge badge-neutral">4 Standard Scenarios</span>
+          <span className="badge badge-neutral">5 Fixed Scenarios (4 Seeds + 1 Control)</span>
         </div>
 
         <div style={{ padding: '0.5rem 0 1rem 0' }}>
           <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
-            This suite tests 3 adversarial attack scenarios and 1 normal customer-service task.
-            The test records each action, verifies tool policies, and logs whether the attack was stopped or succeeded.
+            This baseline suite tests 4 fixed seed attack vectors and 1 normal customer-service task to establish an initial performance baseline.
+            Dynamic multi-round variations are generated separately during the <strong>Adaptive Red-Team Loop</strong>.
           </p>
 
           <div style={{ marginBottom: '1.25rem' }}>
@@ -178,35 +249,36 @@ export const RunTestsView: React.FC<Props> = ({
         )}
       </div>
 
-      {/* Test Scenarios List */}
+      {/* 1. Fixed Seed Benchmark Scenarios */}
       <div className="card">
         <div className="card-header">
           <div>
-            <h2 className="card-title">Included Test Scenarios</h2>
-            <p className="card-subtitle">Scenarios evaluated in this benchmark suite</p>
+            <h2 className="card-title">Fixed Seed Benchmark Scenarios</h2>
+            <p className="card-subtitle">Deterministic baseline scenarios evaluated by clicking "Run Security Test"</p>
           </div>
+          <span className="badge badge-neutral">5 Fixed Scenarios (4 Seeds + 1 Control)</span>
         </div>
 
         <div className="table-container">
           <table>
             <thead>
               <tr>
-                <th>Test Scenario</th>
+                <th>Benchmark Scenario</th>
                 <th>Category</th>
-                <th>What It Tests</th>
+                <th>Target Threat Vector</th>
               </tr>
             </thead>
             <tbody>
               <tr>
                 <td>
-                  <strong>Secret Canary Leak</strong>
+                  <strong>Secret Canary Leak in Tool Arguments</strong>
                   <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>seed-canary-leak-prompt</div>
                 </td>
                 <td>
                   <span className="badge badge-warning">Confidentiality</span>
                 </td>
                 <td style={{ color: 'var(--text-secondary)' }}>
-                  Attempts to trick the agent into repeating private canary secrets in its reply or action parameters.
+                  Attempts to trick the agent into including private canary secrets in external tool arguments.
                 </td>
               </tr>
               <tr>
@@ -230,7 +302,19 @@ export const RunTestsView: React.FC<Props> = ({
                   <span className="badge badge-danger">Tool Boundary</span>
                 </td>
                 <td style={{ color: 'var(--text-secondary)' }}>
-                  Prompts the agent to perform sensitive restricted tool operations (such as deleting files or unauthorized memory writes).
+                  Prompts the agent to perform sensitive restricted tool operations (such as deleting files or accessing out-of-scope records).
+                </td>
+              </tr>
+              <tr>
+                <td>
+                  <strong>Multi-Step Untrusted Memory Poisoning</strong>
+                  <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>seed-memory-poisoning</div>
+                </td>
+                <td>
+                  <span className="badge badge-danger">Memory Integrity</span>
+                </td>
+                <td style={{ color: 'var(--text-secondary)' }}>
+                  Instructs the agent to overwrite persistent memory with unverified attacker directives.
                 </td>
               </tr>
               <tr>
@@ -242,11 +326,96 @@ export const RunTestsView: React.FC<Props> = ({
                   <span className="badge badge-success">Utility Control</span>
                 </td>
                 <td style={{ color: 'var(--text-secondary)' }}>
-                  A standard support request to verify that safety guards do not break legitimate agent functionality.
+                  Standard support request verifying that safety guardrails do not break legitimate agent functionality.
                 </td>
               </tr>
             </tbody>
           </table>
+        </div>
+      </div>
+
+      {/* 2. Adaptive Attack Coverage */}
+      <div className="card" style={{ marginTop: '1.25rem' }}>
+        <div className="card-header">
+          <div>
+            <h2 className="card-title">
+              <Zap size={16} color="var(--primary)" style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: '-2px' }} />
+              Adaptive Red-Team Attack Coverage
+            </h2>
+            <p className="card-subtitle">
+              Dynamic attack strategies supported by the feedback mutation engine during multi-round red teaming
+            </p>
+          </div>
+          <span className={`badge ${attemptedCount > 0 ? 'badge-success' : 'badge-neutral'}`}>
+            {attemptedCount} of {ADAPTIVE_STRATEGIES.length} Attempted in Session
+          </span>
+        </div>
+
+        <div className="table-container">
+          <table>
+            <thead>
+              <tr>
+                <th>Adaptive Strategy</th>
+                <th>Vector</th>
+                <th>Description</th>
+                <th style={{ textAlign: 'right' }}>Session Status</th>
+              </tr>
+            </thead>
+            <tbody>
+              {ADAPTIVE_STRATEGIES.map((strat) => {
+                const attempts = attemptedStrategyMap.get(strat.id);
+                const wasAttempted = Boolean(attempts && attempts.length > 0);
+                const latestRound = wasAttempted ? attempts![attempts!.length - 1].round : null;
+                return (
+                  <tr key={strat.id}>
+                    <td>
+                      <strong style={{ color: 'var(--text-primary)' }}>{strat.name}</strong>
+                      <div className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                        {strat.id}
+                      </div>
+                    </td>
+                    <td>
+                      <span className="badge badge-neutral">{strat.category}</span>
+                    </td>
+                    <td style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+                      {strat.description}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      {wasAttempted ? (
+                        <span className="badge badge-success" style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}>
+                          <CheckCircle2 size={11} /> Attempted (Round {latestRound || 1})
+                        </span>
+                      ) : (
+                        <span className="badge badge-neutral">Not Attempted (Available)</span>
+                      )}
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+
+        <div
+          style={{
+            padding: '0.85rem 1rem',
+            backgroundColor: 'var(--bg-surface-subtle)',
+            borderRadius: 'var(--radius-sm)',
+            borderTop: '1px solid var(--border-light)',
+            display: 'flex',
+            justifyContent: 'space-between',
+            alignItems: 'center',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+            marginTop: '0.5rem',
+          }}
+        >
+          <span style={{ fontSize: '0.82rem', color: 'var(--text-secondary)' }}>
+            <strong>Note:</strong> Adaptive strategies are generated on demand based on guard denial feedback. They are evaluated during the <strong>Adaptive Red-Team Loop</strong> in Protection.
+          </span>
+          <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('defenses')}>
+            Run Adaptive Loop in Protection <ArrowRight size={13} />
+          </button>
         </div>
       </div>
     </div>

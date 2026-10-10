@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Finding } from '../types';
-import { AlertTriangle, ShieldCheck, ShieldAlert, FileText, CheckCircle2 } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, ShieldAlert, FileText, CheckCircle2, History, Layers } from 'lucide-react';
 
 interface Props {
   findings: Finding[];
@@ -11,12 +11,17 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
     findings.length > 0 ? findings[0].finding_id : null
   );
 
+  const totalOccurrences = findings.reduce(
+    (sum, f) => sum + (f.details?.occurrences || 1),
+    0
+  );
+
   const getSourceBadge = (source: string) => {
     switch (source) {
       case 'recorded':
         return <span className="badge badge-warning">Recorded Fixture</span>;
       case 'generated':
-        return <span className="badge badge-neutral">Adaptive Discovery</span>;
+        return <span className="badge badge-primary">Adaptive Discovery</span>;
       case 'seed':
         return <span className="badge badge-neutral">Seed Scenario</span>;
       default:
@@ -90,6 +95,8 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
 
   const activeFinding = findings.find((f) => f.finding_id === selectedFindingId) || findings[0];
   const details = activeFinding ? getProblemDetails(activeFinding.rule_fired) : null;
+  const activeOccurrences = activeFinding?.details?.occurrences || 1;
+  const associatedRuns = activeFinding?.details?.associated_run_ids || (activeFinding?.trace_id ? [activeFinding.trace_id] : []);
 
   return (
     <div>
@@ -97,19 +104,24 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
         <div>
           <h1 className="page-title">Problems Found</h1>
           <p className="page-desc">
-            Review security vulnerabilities and policy violations detected during agent testing.
+            Deduplicated catalog of unique vulnerabilities detected across testing and adaptive attacks.
           </p>
         </div>
-        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
-          {findings.length} problem(s) cataloged
-        </span>
+        <div style={{ textAlign: 'right' }}>
+          <span className="badge badge-primary" style={{ fontSize: '0.84rem', padding: '0.3rem 0.65rem' }}>
+            {findings.length} Unique {findings.length === 1 ? 'Vulnerability' : 'Vulnerabilities'}
+          </span>
+          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)', marginTop: '0.2rem' }}>
+            {totalOccurrences} total violation attempt{totalOccurrences === 1 ? '' : 's'} across runs
+          </div>
+        </div>
       </div>
 
       {findings.length === 0 ? (
         <div className="empty-state">
           <div className="empty-state-title">No problems found</div>
           <div className="empty-state-desc">
-            No security violations were detected. Run security tests in <strong>Run Security Test</strong> to evaluate your agent.
+            No security violations were detected. Run security tests in <strong>Run Security Test</strong> or <strong>Try a New Attack</strong> to evaluate your agent.
           </div>
         </div>
       ) : (
@@ -118,8 +130,8 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
           <div className="card" style={{ margin: 0 }}>
             <div className="card-header">
               <div>
-                <h2 className="card-title">Discovered Issues</h2>
-                <p className="card-subtitle">Click an issue to view its details and evidence</p>
+                <h2 className="card-title">Discovered Issues (Deduplicated)</h2>
+                <p className="card-subtitle">Click an issue to view its details, occurrences, and run traces</p>
               </div>
             </div>
 
@@ -128,6 +140,7 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
                 <thead>
                   <tr>
                     <th>Issue</th>
+                    <th>Occurrences</th>
                     <th>Severity</th>
                     <th>Source</th>
                   </tr>
@@ -136,6 +149,7 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
                   {findings.map((f) => {
                     const isSelected = f.finding_id === activeFinding?.finding_id;
                     const meta = getProblemDetails(f.rule_fired);
+                    const occ = f.details?.occurrences || 1;
                     return (
                       <tr
                         key={f.finding_id}
@@ -152,6 +166,15 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
                           <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
                             {f.description}
                           </div>
+                        </td>
+                        <td>
+                          <span
+                            className={`badge ${occ > 1 ? 'badge-warning' : 'badge-neutral'}`}
+                            style={{ display: 'inline-flex', alignItems: 'center', gap: '0.3rem' }}
+                          >
+                            <Layers size={11} />
+                            {occ}x detected
+                          </span>
                         </td>
                         <td>{getSeverityBadge(f.severity)}</td>
                         <td>{getSourceBadge(f.source)}</td>
@@ -178,6 +201,35 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
                   </div>
                 </div>
                 {getSeverityBadge(activeFinding.severity)}
+              </div>
+
+              {/* Occurrences & Lineage Card */}
+              <div
+                style={{
+                  marginBottom: '1.25rem',
+                  padding: '0.85rem 1rem',
+                  backgroundColor: 'var(--bg-surface-subtle)',
+                  borderRadius: 'var(--radius-sm)',
+                  border: '1px solid var(--border-default)',
+                }}
+              >
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.35rem' }}>
+                  <span style={{ fontSize: '0.78rem', fontWeight: 700, color: 'var(--text-muted)', textTransform: 'uppercase' }}>
+                    Violation Frequency
+                  </span>
+                  <span className={`badge ${activeOccurrences > 1 ? 'badge-warning' : 'badge-neutral'}`}>
+                    {activeOccurrences} Execution Attempt{activeOccurrences === 1 ? '' : 's'}
+                  </span>
+                </div>
+                <div style={{ fontSize: '0.84rem', color: 'var(--text-primary)', lineHeight: '1.45' }}>
+                  This vulnerability was triggered <strong>{activeOccurrences} time{activeOccurrences === 1 ? '' : 's'}</strong> during testing.
+                  Finding records are deduplicated by underlying vulnerability so each issue appears once.
+                </div>
+                {activeFinding.details?.last_seen_at && (
+                  <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.35rem' }}>
+                    Last triggered: {activeFinding.details.last_seen_at}
+                  </div>
+                )}
               </div>
 
               {/* What Happened */}
@@ -220,13 +272,32 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
                 </div>
               </div>
 
-              {/* Associated Trace ID */}
+              {/* Associated Test Run Traces */}
               <div>
-                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
-                  Associated Test Run
+                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem', display: 'flex', alignItems: 'center', gap: '0.3rem' }}>
+                  <History size={13} /> Associated Test Runs ({associatedRuns.length})
                 </h4>
-                <div className="mono" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
-                  {activeFinding.trace_id}
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '0.4rem', marginTop: '0.25rem' }}>
+                  {associatedRuns.map((rid, idx) => {
+                    const isLatest = idx === associatedRuns.length - 1;
+                    return (
+                      <span
+                        key={rid}
+                        className="badge badge-neutral mono"
+                        style={{
+                          fontSize: '0.76rem',
+                          backgroundColor: isLatest ? 'var(--primary-subtle)' : undefined,
+                          borderColor: isLatest ? 'var(--primary)' : undefined,
+                          color: isLatest ? 'var(--primary)' : undefined,
+                        }}
+                      >
+                        {rid} {isLatest && '(Latest)'}
+                      </span>
+                    );
+                  })}
+                </div>
+                <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+                  All {associatedRuns.length} execution traces and cryptographic chain blocks are preserved in <strong>Test Runs</strong>.
                 </div>
               </div>
             </div>
