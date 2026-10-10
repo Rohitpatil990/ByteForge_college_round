@@ -37,31 +37,32 @@ class GuardCheckResult(TypedDict, total=False):
 def check_guard(
     tool_call: Dict[str, Any],
     context: GuardContext,
-    policy: Dict[str, Any],
+    policy: Optional[Dict[str, Any]] = None,
     is_sensitive: bool = False,
 ) -> GuardCheckResult:
     """Evaluate tool execution request against policy and active defenses.
 
     Frozen contract: guard.check(tool_call, context, policy) -> {verdict, rule, reason}
     """
+    safe_policy = policy if policy is not None else {}
     try:
         # Check if external P3 defense module is present and has a custom guard.check
         try:
             import defense
             if hasattr(defense, "check") and callable(defense.check):
-                return defense.check(tool_call, context, policy)
+                return defense.check(tool_call, context, safe_policy)
             if hasattr(defense, "Guard") and hasattr(defense.Guard, "check"):
-                return defense.Guard.check(tool_call, context, policy)
+                return defense.Guard.check(tool_call, context, safe_policy)
         except Exception:
             # Fall back to built-in guard handler
             pass
 
-        return _builtin_guard_check(tool_call, context, policy)
+        return _builtin_guard_check(tool_call, context, safe_policy)
 
     except Exception as exc:
         logger.error(f"Error during guard check for {tool_call.get('tool')}: {exc}")
         # FAIL CLOSED: On error, deny sensitive tools. Never fail open.
-        fail_closed = policy.get("guard", {}).get("fail_closed", True)
+        fail_closed = safe_policy.get("guard", {}).get("fail_closed", True)
         if is_sensitive or fail_closed:
             return {
                 "verdict": "deny",
@@ -78,9 +79,10 @@ def check_guard(
 def _builtin_guard_check(
     tool_call: Dict[str, Any],
     context: GuardContext,
-    policy: Dict[str, Any],
+    policy: Optional[Dict[str, Any]] = None,
 ) -> GuardCheckResult:
     """Internal built-in reference guard implementation."""
+    safe_policy = policy if policy is not None else {}
     guard_mode = context.get("guard_mode", "off")
     defense_config = context.get("defense_config", {})
 
@@ -108,7 +110,7 @@ def _builtin_guard_check(
 
     # Defense D3: Rate Limits / Quarantine
     if defense_config.get("D3", False):
-        quarantine_cfg = policy.get("guard", {}).get("quarantine", {})
+        quarantine_cfg = safe_policy.get("guard", {}).get("quarantine", {})
         deny_threshold = quarantine_cfg.get("deny_threshold", 3)
         if context.get("denied_sensitive_count", 0) >= deny_threshold:
             return {
@@ -120,7 +122,7 @@ def _builtin_guard_check(
     # Defense D2: Taint Tracking / Untrusted Memory Protection
     if defense_config.get("D2", False):
         if tool_name == "write_memory":
-            mem_policy = policy.get("write_memory", {})
+            mem_policy = safe_policy.get("write_memory", {})
             if not mem_policy.get("allow_untrusted_source", False):
                 if context.get("tainted", False):
                     return {
@@ -133,7 +135,7 @@ def _builtin_guard_check(
     if defense_config.get("D1", False):
         # 1. Email external domain restriction
         if tool_name == "send_email":
-            email_policy = policy.get("send_email", {})
+            email_policy = safe_policy.get("send_email", {})
             allowed_domains = email_policy.get("allowed_domains")
             if not allowed_domains or not isinstance(allowed_domains, list):
                 return {
@@ -153,7 +155,7 @@ def _builtin_guard_check(
 
         # 2. Customer record role and rate limit checks
         elif tool_name == "read_customer_record":
-            cust_policy = policy.get("read_customer_record", {})
+            cust_policy = safe_policy.get("read_customer_record", {})
             allowed_roles = cust_policy.get("roles", ["support"])
             max_per_run = cust_policy.get("max_per_run", 1)
 
@@ -174,7 +176,7 @@ def _builtin_guard_check(
 
         # 3. Disallowed tools (e.g. delete_file)
         elif tool_name == "delete_file":
-            del_policy = policy.get("delete_file", {})
+            del_policy = safe_policy.get("delete_file", {})
             if not del_policy.get("allowed", False):
                 return {
                     "verdict": "deny",

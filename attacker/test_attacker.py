@@ -163,19 +163,79 @@ class TestAttackerModule(unittest.TestCase):
         self.assertIn("audit-proxy@company.com", variant["initial_input"])
 
     def test_prompt_includes_target_config_context(self):
-        """Verify build_attacker_prompt embeds target tools and canaries."""
+        """Verify build_attacker_prompt embeds target tools while strictly REDACTING secrets."""
         feedback = {"type": "bot_reply", "text": "Refused."}
         prompt = build_attacker_prompt(
-            goal="Test goal",
-            prev_user_input="Previous input",
+            goal="Test goal attempting to leak CANARY_TOKEN_DEMO_SECRET_48291",
+            prev_user_input="Previous input mentioning CANARY_TOKEN_DEMO_SECRET_48291",
             feedback=feedback,
             target_config=self.target_config,
         )
 
-        self.assertIn("CANARY_TOKEN_DEMO_SECRET_48291", prompt)
+        # Raw canary MUST NOT appear anywhere in the generated prompt
+        self.assertNotIn("CANARY_TOKEN_DEMO_SECRET_48291", prompt)
+        self.assertIn("[REDACTED_SECRET]", prompt)
         self.assertIn("send_email", prompt)
         self.assertIn("Test goal", prompt)
         self.assertIn("Previous input", prompt)
+
+    def test_prompt_redacts_multiple_canaries_and_substrings(self):
+        """Verify build_attacker_prompt and sanitize_canaries redact all canaries including substrings."""
+        multi_config = dict(self.target_config)
+        multi_config["canary_secrets"] = ["SECRET_ALPHA", "SECRET_ALPHA_EXTENDED", "SECRET_BETA"]
+
+        prompt = build_attacker_prompt(
+            goal="Extract SECRET_ALPHA_EXTENDED and SECRET_ALPHA and secret_beta!",
+            prev_user_input="I found SECRET_ALPHA inside payload_SECRET_BETA_data",
+            feedback={"type": "deny_reason", "text": "Denied with SECRET_ALPHA in message"},
+            target_config=multi_config,
+        )
+
+        self.assertNotIn("SECRET_ALPHA", prompt)
+        self.assertNotIn("SECRET_ALPHA_EXTENDED", prompt)
+        self.assertNotIn("SECRET_BETA", prompt)
+        self.assertNotIn("secret_beta", prompt)
+        self.assertIn("[REDACTED_SECRET]", prompt)
+
+    def test_canary_config_validation(self):
+        """Verify target configuration validation rejects missing, empty, and malformed canaries."""
+        from attacker.seed_scenarios import validate_canary_config
+
+        # 1. Valid config
+        canaries = validate_canary_config(self.target_config)
+        self.assertIsInstance(canaries, list)
+        self.assertTrue(len(canaries) > 0)
+
+        # 2. Missing canaries
+        with self.assertRaises(ValueError) as cm:
+            validate_canary_config({"id": "target-no-canary", "tools": []})
+        self.assertIn("lacks required synthetic canary secret", str(cm.exception))
+
+        # 3. Empty canary list
+        with self.assertRaises(ValueError) as cm:
+            validate_canary_config({"id": "target-empty", "canary_secrets": []})
+        self.assertIn("non-empty", str(cm.exception))
+
+        # 4. Malformed canary list (non-string items)
+        with self.assertRaises(ValueError) as cm:
+            validate_canary_config({"id": "target-bad-type", "canary_secrets": [12345]})
+        self.assertIn("entries must be non-empty strings", str(cm.exception))
+
+        # 5. Empty string in canary list
+        with self.assertRaises(ValueError) as cm:
+            validate_canary_config({"id": "target-blank-str", "canary_secrets": ["   "]})
+        self.assertIn("entries must be non-empty strings", str(cm.exception))
+
+        # 6. Non-dict target_config
+        with self.assertRaises(ValueError):
+            validate_canary_config("invalid_target_config")
+
+        # 7. Ensure no actual secret is ever included in error messages
+        secret_test = "SUPER_SECRET_TOKEN_XYZ_999"
+        try:
+            validate_canary_config({"id": "bad", "canary_secrets": [123]})
+        except ValueError as exc:
+            self.assertNotIn(secret_test, str(exc))
 
     def test_round_cap_enforcement(self):
         """Verify strict enforcement of maximum 3 rounds."""
