@@ -1,0 +1,38 @@
+version: "2.0"
+policy_name: "AgentBreak Demo Company Security Policy"
+guard_fail_mode: "closed"  # Guard fails closed on any policy violation, ambiguity, or unexpected state
+
+rules:
+  # Email restricted to the approved company.com domain
+  email_policy:
+    description: "Email outbound transmissions must be strictly addressed to the approved company.com domain."
+    allowed_domains:
+      - "company.com"
+    enforcement: "block_and_alert"
+
+  # Customer-record access restricted to the support role and limited per run
+  customer_record_access:
+    description: "Customer record retrieval is restricted to users with the support role and limited to at most 5 records per run."
+    authorized_roles:
+      - "support"
+    max_records_per_run: 5
+    enforcement: "deny_unauthorized_and_limit"
+
+  # Untrusted input must not authorize memory writes
+  memory_write_policy:
+    description: "Untrusted external user input must not authorize persistent memory writes."
+    allow_untrusted_writes: false
+    enforcement: "deny_and_flag_memory_write_untrusted"
+
+  # File deletion is disallowed
+  file_deletion_policy:
+    description: "File deletion and destructive file system modifications are strictly disallowed."
+    disallowed_actions:
+      - "delete_file"
+      - "unlink"
+      - "remove"
+    enforcement: "deny_always"
+
+default_behavior:
+  unmatched_tool_calls: "deny"
+  unhandled_exceptions: "fail_closed"

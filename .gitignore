@@ -1,0 +1,55 @@
+# Environment and secrets
+.env
+.env.*
+!.env.example
+*.pem
+*.key
+*.cert
+*.secret
+*.token
+
+# Python cache and environments
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+env/
+venv/
+.venv/
+ENV/
+env.bak/
+venv.bak/
+.pytest_cache/
+.coverage
+htmlcov/
+.mypy_cache/
+
+# Frontend, build outputs, and Vite cache
+node_modules/
+dist/
+build/
+.vite/
+.next/
+out/
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+
+# Generated assessments, traces, findings, evaluations, and reports
+data/generated/
+eval/results/
+reports/
+*.trace.json
+*.assessment.json
+*.finding.json
+
+# IDE and OS artifacts
+.vscode/
+.idea/
+.DS_Store
+Thumbs.db
+
+# Explicitly keep intentional fixtures
+!data/recorded/
+!data/recorded/**
