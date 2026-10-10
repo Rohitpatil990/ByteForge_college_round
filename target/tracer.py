@@ -12,7 +12,7 @@ import json
 import os
 import threading
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DATA_DIR = PROJECT_ROOT / "data"
@@ -39,9 +39,13 @@ def compute_trace_hash(prev_hash: str, record_without_hash: Dict[str, Any]) -> s
 class TraceLogger:
     """Thread-safe hash-chained trace logger."""
 
-    def __init__(self, traces_dir: Optional[Path] = None, chain_index: Optional[Path] = None):
-        self.traces_dir = traces_dir or TRACES_DIR
-        self.chain_index = chain_index or CHAIN_INDEX_FILE
+    def __init__(
+        self,
+        traces_dir: Optional[Union[str, Path]] = None,
+        chain_index: Optional[Union[str, Path]] = None,
+    ):
+        self.traces_dir = Path(traces_dir) if traces_dir is not None else TRACES_DIR
+        self.chain_index = Path(chain_index) if chain_index is not None else CHAIN_INDEX_FILE
         self.traces_dir.mkdir(parents=True, exist_ok=True)
         self.chain_index.parent.mkdir(parents=True, exist_ok=True)
 
@@ -113,7 +117,7 @@ class TraceLogger:
             return record_to_hash
 
 
-def verify_trace_chain(traces_dir: Optional[Path] = None) -> Dict[str, Any]:
+def verify_trace_chain(traces_dir: Optional[Union[str, Path]] = None) -> Dict[str, Any]:
     """Verify cryptographic integrity of all saved traces in the chain.
 
     Checks:
@@ -121,7 +125,7 @@ def verify_trace_chain(traces_dir: Optional[Path] = None) -> Dict[str, Any]:
     2. Each trace's computed hash matches trace['hash'].
     3. Each trace's prev_hash matches the previous trace's hash (genesis matches GENESIS_PREV_HASH).
     """
-    directory = traces_dir or TRACES_DIR
+    directory = Path(traces_dir) if traces_dir is not None else TRACES_DIR
     if not directory.exists():
         return {
             "valid": True,
