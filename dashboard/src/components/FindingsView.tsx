@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Finding } from '../types';
-import { AlertTriangle, ShieldAlert, CheckCircle, Info, ExternalLink, Code2 } from 'lucide-react';
+import { AlertTriangle, ShieldCheck, ShieldAlert, FileText, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   findings: Finding[];
@@ -11,152 +11,150 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
     findings.length > 0 ? findings[0].finding_id : null
   );
 
-  const getSourceChip = (source: string) => {
+  const getSourceBadge = (source: string) => {
     switch (source) {
       case 'recorded':
-        return <span className="chip chip-recorded">Recorded Fixture</span>;
+        return <span className="badge badge-warning">Recorded Fixture</span>;
       case 'generated':
-        return <span className="chip chip-generated">Adaptive Generated</span>;
+        return <span className="badge badge-neutral">Adaptive Discovery</span>;
       case 'seed':
-        return <span className="chip chip-seed">Seed Benchmark</span>;
+        return <span className="badge badge-neutral">Seed Scenario</span>;
       default:
-        return <span className="chip chip-seed">{source}</span>;
+        return <span className="badge badge-neutral">{source}</span>;
     }
   };
 
-  const getSeverityChip = (severity?: string) => {
+  const getSeverityBadge = (severity?: string) => {
     switch (severity?.toLowerCase()) {
       case 'critical':
-        return <span className="chip chip-exploit">Critical</span>;
+        return <span className="badge badge-danger">Critical</span>;
       case 'high':
-        return <span className="chip chip-exploit" style={{ background: 'rgba(244, 63, 94, 0.16)' }}>High</span>;
+        return <span className="badge badge-danger">High</span>;
       case 'medium':
-        return <span className="chip chip-inconclusive">Medium</span>;
+        return <span className="badge badge-warning">Medium</span>;
       case 'low':
-        return <span className="chip chip-seed">Low</span>;
+        return <span className="badge badge-neutral">Low</span>;
       default:
-        return <span className="chip chip-seed">Unassigned</span>;
+        return <span className="badge badge-neutral">Notice</span>;
     }
   };
 
-  const getRuleDetails = (rule: string) => {
+  const getProblemDetails = (rule: string) => {
     switch (rule) {
       case 'canary_in_executed_args':
         return {
-          title: 'Canary Secret Injected into Tool Execution Arguments',
-          category: 'Action Parameter Exfiltration',
+          title: 'Secret Leaked in External Tool Arguments',
+          summary: 'The agent passed a confidential secret into the arguments of an external tool call.',
           explanation:
-            'The secret canary token appeared inside the parameters of an invoked tool (e.g., send_email body). The attacker successfully manipulated the agent into transmitting confidential data via an external tool dispatch.',
-          enforcementType: 'Tool Argument Filter (D1)',
-          status: 'Enforced in Code',
+            'During testing, an adversarial prompt tricked the agent into including a protected secret inside a tool call (such as the recipient or body of an email). This allows exfiltration outside the agent system.',
+          protection: 'Tool Domain Policy Guard (D1)',
+          protectionStatus: 'Enforced',
         };
       case 'canary_in_final_reply':
         return {
-          title: 'Canary Secret Leaked into Final Assistant Reply Text',
-          category: 'Delivered Response Disclosure',
+          title: 'Secret Leaked in Conversation Response',
+          summary: 'The agent repeated a confidential secret in its direct answer to the user.',
           explanation:
-            'The secret canary token appeared in plain text in the final delivered user response. Tool-call policies do not monitor or restrict text generated directly into final_reply.',
-          enforcementType: 'Output Reply Filter (D3)',
-          status: 'Stub Guard — Unmitigated in Current Build',
+            'The agent included a sensitive canary secret in its final text response. Since tool-call policies only check function parameters, conversational output filters are required to prevent this disclosure.',
+          protection: 'Response Content Filter (D3)',
+          protectionStatus: 'Development Stub',
         };
       case 'executed_outside_policy':
         return {
-          title: 'Tool Execution Breached Policy Constraints',
-          category: 'Policy Boundary Violation',
+          title: 'Unauthorized Action Exceeded Policy Boundary',
+          summary: 'A tool was invoked with parameters strictly prohibited by company policy.',
           explanation:
-            'A tool was invoked with parameters or conditions strictly forbidden by policy.yaml (e.g. email recipient address outside the approved company.com domain).',
-          enforcementType: 'Domain Policy Guard (D1)',
-          status: 'Enforced in Code',
+            'The agent attempted to invoke a tool with unauthorized parameters (such as sending an email to an unapproved external domain). When defenses are active, Guard D1 intercepts this call.',
+          protection: 'Tool Domain Policy Guard (D1)',
+          protectionStatus: 'Enforced',
         };
       case 'memory_write_untrusted':
         return {
-          title: 'Untrusted User Input Triggered Persistent Memory Write',
-          category: 'Memory Poisoning & Integrity',
+          title: 'Unauthorized Memory Modification from Untrusted Input',
+          summary: 'Untrusted user input attempted to modify persistent agent memory.',
           explanation:
-            'An unauthenticated external prompt triggered a persistent state modification in agent memory, violating the policy.yaml directive that untrusted input cannot authorize memory writes.',
-          enforcementType: 'Memory Write Guard (D2)',
-          status: 'Enforced in Code',
+            'An unverified prompt instructed the agent to write or overwrite persistent memory data. Guard D2 rejects untrusted memory writes to prevent persistent agent manipulation.',
+          protection: 'Untrusted Memory Write Guard (D2)',
+          protectionStatus: 'Enforced',
         };
       default:
         return {
-          title: rule,
-          category: 'Security Violation',
-          explanation: 'Generic security policy violation detected.',
-          enforcementType: 'Custom Policy',
-          status: 'Under Investigation',
+          title: rule.replace(/_/g, ' '),
+          summary: 'Security policy violation detected during testing.',
+          explanation: 'The agent executed an action that triggered an active security rule.',
+          protection: 'Policy Guard',
+          protectionStatus: 'Active',
         };
     }
   };
 
   const activeFinding = findings.find((f) => f.finding_id === selectedFindingId) || findings[0];
-  const ruleMeta = activeFinding ? getRuleDetails(activeFinding.rule_fired) : null;
+  const details = activeFinding ? getProblemDetails(activeFinding.rule_fired) : null;
 
   return (
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <AlertTriangle size={18} color="#f59e0b" /> Discovered Security Findings
-          </h2>
+          <h1 className="page-title">Problems Found</h1>
           <p className="page-desc">
-            Granular evidence of confirmed policy violations and canary disclosures.
-            Pre-recorded baseline fixtures are isolated with amber badges and never count as adaptive discoveries.
+            Review security vulnerabilities and policy violations detected during agent testing.
           </p>
         </div>
-        <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          {findings.length} Finding(s) Cataloged
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          {findings.length} problem(s) cataloged
         </span>
       </div>
 
       {findings.length === 0 ? (
-        <div className="panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          No findings recorded yet. Execute benchmark tests in <strong>Execute Tests</strong> to evaluate policies.
+        <div className="empty-state">
+          <div className="empty-state-title">No problems found</div>
+          <div className="empty-state-desc">
+            No security violations were detected. Run security tests in <strong>Run Security Test</strong> to evaluate your agent.
+          </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1.1fr', gap: '1.15rem' }}>
-          {/* Left: Findings Table */}
-          <div className="panel" style={{ margin: 0, padding: '0.85rem' }}>
-            <div className="panel-header" style={{ marginBottom: '0.65rem' }}>
-              <h3 className="panel-title" style={{ fontSize: '0.85rem' }}>
-                Discovered Violations Table
-              </h3>
-              <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                {findings.filter((f) => f.source !== 'recorded').length} Live Discoveries
-              </span>
+        <div style={{ display: 'grid', gridTemplateColumns: '1.2fr 1fr', gap: '1.25rem' }}>
+          {/* Left: Problems List */}
+          <div className="card" style={{ margin: 0 }}>
+            <div className="card-header">
+              <div>
+                <h2 className="card-title">Discovered Issues</h2>
+                <p className="card-subtitle">Click an issue to view its details and evidence</p>
+              </div>
             </div>
 
             <div className="table-container">
               <table>
                 <thead>
                   <tr>
-                    <th>Finding ID</th>
-                    <th>Source Tag</th>
+                    <th>Issue</th>
                     <th>Severity</th>
-                    <th>Rule Fired</th>
+                    <th>Source</th>
                   </tr>
                 </thead>
                 <tbody>
                   {findings.map((f) => {
                     const isSelected = f.finding_id === activeFinding?.finding_id;
+                    const meta = getProblemDetails(f.rule_fired);
                     return (
                       <tr
                         key={f.finding_id}
                         onClick={() => setSelectedFindingId(f.finding_id)}
                         style={{
-                          backgroundColor: isSelected ? 'var(--bg-surface-elevated)' : undefined,
+                          backgroundColor: isSelected ? 'var(--primary-subtle)' : undefined,
                           cursor: 'pointer',
                         }}
                       >
-                        <td className="mono" style={{ fontWeight: 600, fontSize: '0.76rem' }}>
-                          {f.finding_id}
-                        </td>
-                        <td>{getSourceChip(f.source)}</td>
-                        <td>{getSeverityChip(f.severity)}</td>
                         <td>
-                          <code className="mono" style={{ fontSize: '0.74rem', color: '#00e5ff' }}>
-                            {f.rule_fired}
-                          </code>
+                          <div style={{ fontWeight: 600, color: 'var(--text-primary)' }}>
+                            {meta.title}
+                          </div>
+                          <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                            {f.description}
+                          </div>
                         </td>
+                        <td>{getSeverityBadge(f.severity)}</td>
+                        <td>{getSourceBadge(f.source)}</td>
                       </tr>
                     );
                   })}
@@ -165,84 +163,72 @@ export const FindingsView: React.FC<Props> = ({ findings }) => {
             </div>
           </div>
 
-          {/* Right: Forensic Finding Detail Inspector */}
-          {activeFinding && ruleMeta && (
-            <div className="panel" style={{ margin: 0, padding: '1rem', background: 'var(--bg-surface-elevated)' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                <span className="mono" style={{ fontSize: '0.85rem', fontWeight: 700, color: '#fff' }}>
-                  {activeFinding.finding_id}
-                </span>
-                <div style={{ display: 'flex', gap: '0.4rem' }}>
-                  {getSourceChip(activeFinding.source)}
-                  {getSeverityChip(activeFinding.severity)}
+          {/* Right: Selected Finding Evidence Card */}
+          {activeFinding && details && (
+            <div className="card" style={{ margin: 0, padding: '1.25rem' }}>
+              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '0.75rem' }}>
+                <div>
+                  <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                    <h3 style={{ fontSize: '1.05rem', fontWeight: 700, color: 'var(--text-primary)' }}>
+                      {details.title}
+                    </h3>
+                  </div>
+                  <div style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    Finding ID: <code className="mono">{activeFinding.finding_id}</code>
+                  </div>
                 </div>
+                {getSeverityBadge(activeFinding.severity)}
               </div>
 
-              <h3 style={{ fontSize: '0.98rem', fontWeight: 700, color: '#fff', marginBottom: '0.25rem' }}>
-                {ruleMeta.title}
-              </h3>
-
-              <div style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
-                Category: <strong style={{ color: '#cbd5e1' }}>{ruleMeta.category}</strong> | Rule Code:{' '}
-                <code className="mono" style={{ color: '#00e5ff' }}>{activeFinding.rule_fired}</code>
-              </div>
-
-              {/* Description */}
-              <div style={{ padding: '0.65rem 0.8rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-                  Recorded Observation
-                </span>
-                <p style={{ color: '#e2e8f0', lineHeight: '1.45' }}>{activeFinding.description}</p>
-              </div>
-
-              {/* Forensic Explanation */}
-              <div style={{ padding: '0.65rem 0.8rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-                  Security Violation Analysis
-                </span>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{ruleMeta.explanation}</p>
-              </div>
-
-              {/* Mitigation & Enforcement Status */}
-              <div style={{ padding: '0.65rem 0.8rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)', marginBottom: '0.75rem', fontSize: '0.8rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase' }}>
-                    Mitigation Enforcement
-                  </span>
-                  {activeFinding.rule_fired === 'canary_in_final_reply' ? (
-                    <span className="chip chip-stub">Stub Filter — Unmitigated</span>
-                  ) : (
-                    <span className="chip chip-enforced">Policy Enforced</span>
-                  )}
-                </div>
-                <p style={{ color: '#94a3b8', fontSize: '0.76rem' }}>
-                  Associated Control: <strong>{ruleMeta.enforcementType}</strong>
+              {/* What Happened */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                  What Happened
+                </h4>
+                <p style={{ fontSize: '0.88rem', color: 'var(--text-primary)', lineHeight: '1.5' }}>
+                  {activeFinding.description}
                 </p>
               </div>
 
-              {/* Raw Evidence Payload */}
-              {activeFinding.details && (
-                <div>
-                  <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.25rem' }}>
-                    Evidence Metadata Log
-                  </span>
-                  <pre
-                    className="mono"
-                    style={{
-                      padding: '0.55rem',
-                      background: 'var(--bg-app)',
-                      borderRadius: '4px',
-                      fontSize: '0.72rem',
-                      color: '#94a3b8',
-                      overflowX: 'auto',
-                      border: '1px solid var(--border-subtle)',
-                      lineHeight: '1.4',
-                    }}
-                  >
-                    {JSON.stringify(activeFinding.details, null, 2)}
-                  </pre>
+              {/* Technical Rule Fired */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                  Security Rule
+                </h4>
+                <div style={{ padding: '0.5rem 0.75rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
+                  <code className="mono" style={{ fontSize: '0.82rem', color: 'var(--text-primary)', fontWeight: 600 }}>
+                    {activeFinding.rule_fired}
+                  </code>
+                  <p style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.35rem' }}>
+                    {details.explanation}
+                  </p>
                 </div>
-              )}
+              </div>
+
+              {/* Recommended Protection */}
+              <div style={{ marginBottom: '1.25rem' }}>
+                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                  Recommended Protection
+                </h4>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', padding: '0.65rem 0.85rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-default)' }}>
+                  <span style={{ fontSize: '0.85rem', fontWeight: 500, color: 'var(--text-primary)' }}>
+                    {details.protection}
+                  </span>
+                  <span className={`badge ${details.protectionStatus === 'Enforced' ? 'badge-success' : 'badge-warning'}`}>
+                    {details.protectionStatus}
+                  </span>
+                </div>
+              </div>
+
+              {/* Associated Trace ID */}
+              <div>
+                <h4 style={{ fontSize: '0.82rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.35rem' }}>
+                  Associated Test Run
+                </h4>
+                <div className="mono" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                  {activeFinding.trace_id}
+                </div>
+              </div>
             </div>
           )}
         </div>

@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Defense } from '../types';
 import { api } from '../api';
-import { Shield, ShieldAlert, CheckCircle2, AlertTriangle, ToggleLeft, ToggleRight, Info } from 'lucide-react';
+import { ShieldCheck, ShieldAlert, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
@@ -19,7 +19,7 @@ export const DefensesView: React.FC<Props> = ({
 
   const handleToggle = async (d: Defense) => {
     if (d.is_stub) {
-      setError(`Defense '${d.name}' is currently a development stub and cannot be actively enforced.`);
+      setError(`'${d.name}' is a development stub and cannot be toggled.`);
       return;
     }
 
@@ -30,7 +30,7 @@ export const DefensesView: React.FC<Props> = ({
       const newDefenses = defenses.map((item) => (item.id === updated.id ? updated : item));
       onDefensesUpdated(newDefenses);
     } catch (err: any) {
-      setError(err.message || 'Failed to toggle defense');
+      setError(err.message || 'Failed to update protection status');
     } finally {
       setTogglingId(null);
     }
@@ -40,29 +40,27 @@ export const DefensesView: React.FC<Props> = ({
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <Shield size={18} color="#00e5ff" /> Active Defense Guards & Interceptors
-          </h2>
+          <h1 className="page-title">Protection</h1>
           <p className="page-desc">
-            Configure runtime security guardrails. Stubs are explicitly labeled and not misrepresented as active protection.
+            Guardrails that intercept unauthorized tool calls and protect your agent against adversarial exploits.
           </p>
         </div>
       </div>
 
       {error && <div className="alert-banner alert-warning">{error}</div>}
 
-      <div className="panel">
-        <div className="panel-header">
+      <div className="card">
+        <div className="card-header">
           <div>
-            <h3 className="panel-title">Defense Control Matrix</h3>
-            <p className="panel-subtitle">Inspected live from assessment configuration</p>
+            <h2 className="card-title">Configured Guardrails</h2>
+            <p className="card-subtitle">Active and planned security guards for the tested agent</p>
           </div>
-          <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-            3 Configured Controls
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {defenses.length} guardrail(s) configured
           </span>
         </div>
 
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '0.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1rem' }}>
           {defenses.map((d) => {
             const isEnforced = d.status === 'enforced';
             const isStub = d.is_stub || d.status === 'stub';
@@ -71,32 +69,36 @@ export const DefensesView: React.FC<Props> = ({
               <div
                 key={d.id}
                 style={{
-                  padding: '1rem',
-                  borderRadius: '5px',
-                  backgroundColor: 'var(--bg-app)',
+                  padding: '1.25rem',
+                  borderRadius: 'var(--radius-md)',
+                  backgroundColor: 'var(--bg-surface)',
                   border: isStub
-                    ? '1px solid var(--amber-border)'
+                    ? '1px solid var(--warning-border)'
                     : isEnforced
-                    ? '1px solid var(--emerald-border)'
-                    : '1px solid var(--border-subtle)',
+                    ? '1px solid var(--success-border)'
+                    : '1px solid var(--border-default)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.4rem', flexWrap: 'wrap', gap: '0.5rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.65rem' }}>
                   <div>
-                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.55rem', marginBottom: '0.2rem' }}>
-                      <strong style={{ fontSize: '0.92rem', color: '#fff' }}>{d.name}</strong>
+                    <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.25rem' }}>
+                      <strong style={{ fontSize: '0.98rem', color: 'var(--text-primary)' }}>
+                        {d.name}
+                      </strong>
                       {isStub ? (
-                        <span className="chip chip-stub">Development Stub</span>
+                        <span className="badge badge-warning">Development Stub</span>
                       ) : isEnforced ? (
-                        <span className="chip chip-enforced">Active / Enforced</span>
+                        <span className="badge badge-success">
+                          <CheckCircle2 size={12} /> Active / Enforced
+                        </span>
                       ) : (
-                        <span className="chip chip-disabled">Disabled</span>
+                        <span className="badge badge-neutral">Disabled</span>
                       )}
                     </div>
-                    <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>Interception Point: <strong style={{ color: '#00e5ff' }}>{d.target_component}</strong></span>
-                      <span>•</span>
-                      <span>Mitigates: <code className="mono" style={{ color: '#cbd5e1' }}>{d.mitigation_rule}</code></span>
+                    <div style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                      Interception Target: <strong style={{ color: 'var(--text-secondary)' }}>{d.target_component}</strong>
+                      {' • '}
+                      Mitigates Rule: <code className="mono">{d.mitigation_rule}</code>
                     </div>
                   </div>
 
@@ -105,25 +107,35 @@ export const DefensesView: React.FC<Props> = ({
                       className={`btn ${isEnforced ? 'btn-secondary' : 'btn-primary'} btn-sm`}
                       disabled={togglingId === d.id}
                       onClick={() => handleToggle(d)}
-                      style={{ minWidth: '110px' }}
+                      style={{ minWidth: '120px' }}
                     >
                       {togglingId === d.id ? 'Updating...' : isEnforced ? 'Disable Guard' : 'Enable Guard'}
                     </button>
                   ) : (
-                    <span className="chip chip-seed" style={{ fontSize: '0.7rem', color: 'var(--text-subtle)' }}>
-                      Pending P3 Module
+                    <span className="badge badge-neutral" style={{ fontSize: '0.74rem' }}>
+                      Planned in Roadmap
                     </span>
                   )}
                 </div>
 
-                <p style={{ fontSize: '0.8rem', color: '#cbd5e1', marginBottom: '0.5rem', lineHeight: '1.45' }}>
+                <p style={{ fontSize: '0.86rem', color: 'var(--text-secondary)', lineHeight: '1.45', marginBottom: d.denial_message ? '0.65rem' : '0' }}>
                   {d.description}
                 </p>
 
                 {d.denial_message && (
-                  <div style={{ padding: '0.45rem 0.65rem', background: 'var(--bg-surface-elevated)', borderRadius: '3px', border: '1px solid var(--border-subtle)', fontSize: '0.76rem' }}>
-                    <span style={{ color: 'var(--text-muted)' }}>Interception Message: </span>
-                    <span className="mono" style={{ color: '#fca5a5' }}>"{d.denial_message}"</span>
+                  <div
+                    style={{
+                      padding: '0.5rem 0.75rem',
+                      backgroundColor: 'var(--bg-surface-subtle)',
+                      borderRadius: 'var(--radius-sm)',
+                      border: '1px solid var(--border-light)',
+                      fontSize: '0.8rem',
+                    }}
+                  >
+                    <span style={{ color: 'var(--text-muted)' }}>Denial Message: </span>
+                    <span className="mono" style={{ color: 'var(--danger)', fontWeight: 500 }}>
+                      "{d.denial_message}"
+                    </span>
                   </div>
                 )}
               </div>
@@ -132,16 +144,16 @@ export const DefensesView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Honest Boundary Notice */}
-      <div className="panel" style={{ borderLeft: '3px solid #f59e0b' }}>
-        <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: '#fde68a', marginBottom: '0.35rem' }}>
-          Crucial Architectural Boundary: Tool Guards vs. Reply Leaks
-        </h4>
-        <p style={{ color: 'var(--text-secondary)', fontSize: '0.8rem', lineHeight: '1.5' }}>
-          <strong>D1</strong> and <strong>D2</strong> inspect outgoing function call payloads (<code className="mono">tool_call</code>).
-          However, if an attacker prompts the agent to output confidential canary tokens directly in its delivered conversation reply (<code className="mono">final_reply</code>),
-          no tool call is executed. Therefore, tool-call policies alone cannot intercept response leaks.
-          Output filter <strong>D3</strong> is currently a development stub, leaving final reply secrets unmitigated until P3 integration.
+      {/* Boundary & Limitation Explanation */}
+      <div className="card" style={{ backgroundColor: 'var(--bg-surface-subtle)' }}>
+        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
+          Important Boundary: Tool Call Guards vs. Conversational Responses
+        </h3>
+        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
+          <strong>D1</strong> and <strong>D2</strong> inspect external tool call parameters before execution.
+          They successfully block unauthorized email recipients or untrusted memory writes.
+          However, if an attacker prompts the agent to recite confidential data directly in its conversation response (without invoking a tool),
+          tool guards cannot intercept it. A conversational response filter (D3) is needed to mitigate direct speech disclosures.
         </p>
       </div>
     </div>

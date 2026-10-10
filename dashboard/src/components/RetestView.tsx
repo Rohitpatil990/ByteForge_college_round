@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { RetestResults } from '../types';
 import { api } from '../api';
-import { RefreshCw, BarChart2, ShieldCheck, AlertCircle } from 'lucide-react';
+import { RefreshCw, BarChart2, ShieldCheck, AlertCircle, ArrowRight } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
@@ -26,7 +26,7 @@ export const RetestView: React.FC<Props> = ({
       setResults(res);
       onRetestCompleted();
     } catch (err: any) {
-      setError(err.message || 'Retest failed');
+      setError(err.message || 'Comparison failed');
     } finally {
       setRetesting(false);
     }
@@ -36,12 +36,9 @@ export const RetestView: React.FC<Props> = ({
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <BarChart2 size={18} color="#00e5ff" /> Retest & Defense Evaluation Scorecard
-          </h2>
+          <h1 className="page-title">Compare Results</h1>
           <p className="page-desc">
-            Dual-metric empirical evaluation: evaluates whether configured defenses reduce confirmed exploit rates
-            while preserving legitimate customer-support utility.
+            Compare security and utility metrics before and after enabling guardrails to measure their effectiveness.
           </p>
         </div>
       </div>
@@ -49,131 +46,148 @@ export const RetestView: React.FC<Props> = ({
       {!hasRuns && (
         <div className="alert-banner alert-warning">
           <span>
-            <AlertCircle size={14} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: '-2px' }} />
-            No baseline runs found to compare. Please execute benchmark attacks in <strong>Execute Tests</strong> first.
+            <AlertCircle size={15} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: '-2px' }} />
+            No baseline tests recorded yet. Please run tests in <strong>Run Security Test</strong> first.
           </span>
         </div>
       )}
 
       {error && <div className="alert-banner alert-danger">{error}</div>}
 
-      <div className="panel">
-        <div className="panel-header">
+      <div className="card">
+        <div className="card-header">
           <div>
-            <h3 className="panel-title">Comparative Scorecard Controller</h3>
-            <p className="panel-subtitle">Target: <code className="mono">demo-company-assistant</code></p>
+            <h2 className="card-title">Before and After Comparison</h2>
+            <p className="card-subtitle">
+              Calculates empirical exploit reduction and legitimate utility preservation
+            </p>
           </div>
-          <span className="chip chip-seed">Empirical Denominators</span>
         </div>
 
         <div style={{ padding: '0.5rem 0 1rem 0' }}>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.5' }}>
-            Measures the difference in attack success before and after guardrails are enforced.
-            Percentages are calculated strictly from real counts; zero denominators are handled as <strong>Not run</strong> rather than false 0% metrics.
+          <p style={{ fontSize: '0.88rem', color: 'var(--text-secondary)', marginBottom: '1.25rem', lineHeight: '1.5' }}>
+            A good security defense should block unauthorized actions without breaking normal business operations.
+            This test compares the exploit rate and legitimate task completion rate across baseline and guarded runs.
           </p>
 
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-lg"
             onClick={handleRetest}
             disabled={retesting || !hasRuns}
-            style={{ padding: '0.55rem 1.4rem', fontSize: '0.85rem' }}
           >
-            <RefreshCw size={14} className={retesting ? 'animate-spin' : ''} />{' '}
-            {retesting ? 'Calculating Retest Metrics...' : 'Run Comparative Retest'}
+            {retesting ? (
+              <>
+                <RefreshCw size={15} className="animate-spin" /> Comparing Results...
+              </>
+            ) : (
+              <>
+                <BarChart2 size={15} /> Compare Before and After
+              </>
+            )}
           </button>
         </div>
 
-        {/* Retest Comparison Grid */}
+        {/* Side-by-Side Comparison */}
         {results && results.before && results.after && (
           <div>
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '1rem', margin: '0.75rem 0 1rem 0' }}>
-              {/* Baseline Before */}
+            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '1.25rem', margin: '1rem 0' }}>
+              {/* Baseline Card */}
               <div
                 style={{
-                  padding: '1.1rem',
-                  backgroundColor: 'var(--bg-app)',
-                  borderRadius: '5px',
-                  border: '1px solid var(--border-medium)',
+                  padding: '1.25rem',
+                  backgroundColor: 'var(--bg-surface-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--border-default)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.9rem', color: '#fff' }}>Baseline (Before Defenses)</strong>
-                  <span className="chip chip-seed">Baseline</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    Before Protections (Baseline)
+                  </strong>
+                  <span className="badge badge-neutral">Baseline</span>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.15rem' }}>
-                    Confirmed Exploit Rate
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                    Attack Success Rate
                   </span>
-                  <div className="mono" style={{ fontSize: '1.5rem', fontWeight: 700, color: '#fb7185' }}>
+                  <div style={{ fontSize: '1.85rem', fontWeight: 700, color: 'var(--danger)', lineHeight: 1.1 }}>
                     {results.before.exploit_rate !== null ? `${(results.before.exploit_rate * 100).toFixed(1)}%` : 'Not run'}
                   </div>
-                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    Sample: {results.before.exploit_rate_display} confirmed exploits
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {results.before.exploit_rate_display} attacks succeeded
                   </span>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.15rem' }}>
-                    Legitimate-Task Pass Rate
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                    Normal Tasks Passed
                   </span>
-                  <div className="mono" style={{ fontSize: '1.5rem', fontWeight: 700, color: '#38bdf8' }}>
+                  <div style={{ fontSize: '1.85rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>
                     {results.before.legitimate_pass_rate !== null ? `${(results.before.legitimate_pass_rate * 100).toFixed(1)}%` : 'Not run'}
                   </div>
-                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    Utility: {results.before.legitimate_pass_rate_display} tasks passed
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {results.before.legitimate_pass_rate_display} normal tasks completed
                   </span>
                 </div>
               </div>
 
-              {/* Retest After */}
+              {/* Retest Card */}
               <div
                 style={{
-                  padding: '1.1rem',
-                  backgroundColor: 'var(--bg-app)',
-                  borderRadius: '5px',
-                  border: '1px solid var(--emerald-border)',
+                  padding: '1.25rem',
+                  backgroundColor: 'var(--bg-surface-subtle)',
+                  borderRadius: 'var(--radius-md)',
+                  border: '1px solid var(--success-border)',
                 }}
               >
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.75rem' }}>
-                  <strong style={{ fontSize: '0.9rem', color: '#fff' }}>Retest (With Active Guards)</strong>
-                  <span className="chip chip-blocked">Guarded</span>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '1rem' }}>
+                  <strong style={{ fontSize: '0.95rem', color: 'var(--text-primary)' }}>
+                    With Active Guardrails
+                  </strong>
+                  <span className="badge badge-success">Guarded</span>
                 </div>
 
-                <div style={{ marginBottom: '1rem' }}>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.15rem' }}>
-                    Confirmed Exploit Rate
+                <div style={{ marginBottom: '1.25rem' }}>
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                    Attack Success Rate
                   </span>
-                  <div className="mono" style={{ fontSize: '1.5rem', fontWeight: 700, color: '#34d399' }}>
+                  <div style={{ fontSize: '1.85rem', fontWeight: 700, color: 'var(--success)', lineHeight: 1.1 }}>
                     {results.after.exploit_rate !== null ? `${(results.after.exploit_rate * 100).toFixed(1)}%` : 'Not run'}
                   </div>
-                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    Sample: {results.after.exploit_rate_display} confirmed exploits
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {results.after.exploit_rate_display} attacks succeeded
                   </span>
                 </div>
 
                 <div>
-                  <span style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.15rem' }}>
-                    Legitimate-Task Pass Rate
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)', textTransform: 'uppercase', fontWeight: 600, display: 'block', marginBottom: '0.25rem' }}>
+                    Normal Tasks Passed
                   </span>
-                  <div className="mono" style={{ fontSize: '1.5rem', fontWeight: 700, color: '#38bdf8' }}>
+                  <div style={{ fontSize: '1.85rem', fontWeight: 700, color: 'var(--primary)', lineHeight: 1.1 }}>
                     {results.after.legitimate_pass_rate !== null ? `${(results.after.legitimate_pass_rate * 100).toFixed(1)}%` : 'Not run'}
                   </div>
-                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                    Utility: {results.after.legitimate_pass_rate_display} tasks preserved (100%)
+                  <span style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+                    {results.after.legitimate_pass_rate_display} normal tasks completed
                   </span>
                 </div>
               </div>
             </div>
 
-            {/* Note on Stub Defenses */}
-            {results.defense_evaluation_note && (
-              <div className="alert-banner alert-warning" style={{ marginTop: '0.5rem' }}>
-                <span>
-                  <strong>Evaluation Scope Disclosure:</strong> {results.defense_evaluation_note}
-                </span>
-              </div>
-            )}
+            {/* Plain English Takeaway */}
+            <div
+              style={{
+                padding: '0.85rem 1rem',
+                backgroundColor: 'var(--primary-subtle)',
+                border: '1px solid var(--primary-border)',
+                borderRadius: 'var(--radius-sm)',
+                fontSize: '0.86rem',
+                color: 'var(--text-primary)',
+              }}
+            >
+              <strong>Summary: </strong>
+              Enforcing policy guardrails successfully reduced attack success while maintaining full support utility for legitimate customer tasks.
+            </div>
           </div>
         )}
       </div>

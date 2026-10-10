@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Run, TraceStep } from '../types';
-import { Terminal, ArrowRight, CornerDownRight, CheckCircle, ShieldAlert, Cpu } from 'lucide-react';
+import { User, Cpu, Wrench, CheckCircle, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
 
 interface Props {
   runs: Run[];
@@ -13,46 +13,63 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
 
   const activeRun = runs.find((r) => r.run_id === selectedRunId) || runs[0];
 
-  const getVerdictChip = (verdict: string) => {
+  const getResultBadge = (verdict: string) => {
     switch (verdict) {
       case 'confirmed_exploit':
-        return <span className="chip chip-exploit">Exploit Confirmed</span>;
+        return <span className="chip chip-exploit">Attack succeeded</span>;
       case 'blocked':
-        return <span className="chip chip-blocked">Blocked by Guard</span>;
+        return <span className="chip chip-blocked">Attack blocked</span>;
       case 'legitimate_pass':
-        return <span className="chip chip-pass">Legitimate Pass</span>;
+        return <span className="chip chip-pass">Passed</span>;
       case 'inconclusive':
-        return <span className="chip chip-inconclusive">Inconclusive</span>;
+        return <span className="chip chip-inconclusive">Needs review</span>;
       default:
         return <span className="chip chip-seed">{verdict}</span>;
     }
   };
 
-  const getSourceChip = (source: string) => {
+  const getSourceBadge = (source: string) => {
     switch (source) {
       case 'recorded':
-        return <span className="chip chip-recorded">Recorded Fixture</span>;
+        return <span className="badge badge-warning">Recorded Fixture</span>;
       case 'generated':
-        return <span className="chip chip-generated">Adaptive Generated</span>;
+        return <span className="badge badge-neutral">Adaptive Variation</span>;
       default:
-        return <span className="chip chip-seed">Seed Benchmark</span>;
+        return <span className="badge badge-neutral">Standard Test</span>;
     }
   };
 
-  const getStepTypeBadge = (type: string) => {
+  const getStepIcon = (type: string) => {
     switch (type) {
       case 'user_input':
-        return <span className="mono" style={{ color: '#00e5ff', fontWeight: 600 }}>user_input</span>;
+        return <User size={15} color="var(--primary)" />;
       case 'agent_thought':
-        return <span className="mono" style={{ color: '#a855f7', fontWeight: 600 }}>agent_thought</span>;
+        return <Cpu size={15} color="#7C3AED" />;
       case 'tool_call':
-        return <span className="mono" style={{ color: '#f59e0b', fontWeight: 600 }}>tool_call</span>;
+        return <Wrench size={15} color="var(--warning)" />;
       case 'tool_result':
-        return <span className="mono" style={{ color: '#10b981', fontWeight: 600 }}>tool_result</span>;
+        return <CheckCircle size={15} color="var(--success)" />;
       case 'final_reply':
-        return <span className="mono" style={{ color: '#ec4899', fontWeight: 700 }}>final_reply</span>;
+        return <MessageSquare size={15} color="#DB2777" />;
       default:
-        return <span className="mono" style={{ color: '#94a3b8' }}>{type}</span>;
+        return <User size={15} color="var(--text-muted)" />;
+    }
+  };
+
+  const getStepLabel = (type: string) => {
+    switch (type) {
+      case 'user_input':
+        return 'User Message';
+      case 'agent_thought':
+        return 'Agent Reasoning';
+      case 'tool_call':
+        return 'Tool Invoked';
+      case 'tool_result':
+        return 'Tool Result';
+      case 'final_reply':
+        return 'Final Response Delivered';
+      default:
+        return type;
     }
   };
 
@@ -60,31 +77,32 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <Terminal size={18} color="#00e5ff" /> Execution Runs & Step-by-Step Traces
-          </h2>
+          <h1 className="page-title">Test Runs</h1>
           <p className="page-desc">
-            Forensic trace inspection tracking agent thought processes, tool arguments, policy intercepts, and final response deliveries.
+            Review detailed execution records for each test, including user prompts, agent reasoning, tool calls, and final responses.
           </p>
         </div>
-        <span className="mono" style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
-          {runs.length} Saved Run(s)
+        <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+          {runs.length} test run(s) recorded
         </span>
       </div>
 
       {runs.length === 0 ? (
-        <div className="panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          No runs recorded in current session. Execute benchmark tests in <strong>Execute Tests</strong> to inspect traces.
+        <div className="empty-state">
+          <div className="empty-state-title">No test runs recorded</div>
+          <div className="empty-state-desc">
+            Execute security tests in <strong>Run Security Test</strong> to see detailed step-by-step records.
+          </div>
         </div>
       ) : (
-        <div style={{ display: 'grid', gridTemplateColumns: 'minmax(280px, 1fr) 2.2fr', gap: '1.15rem' }}>
-          {/* Left: Compact Run Selector */}
-          <div className="panel" style={{ margin: 0, padding: '0.85rem' }}>
-            <div style={{ fontSize: '0.74rem', fontWeight: 700, textTransform: 'uppercase', color: 'var(--text-subtle)', marginBottom: '0.65rem' }}>
-              Select Run to Investigate
+        <div style={{ display: 'grid', gridTemplateColumns: '320px 1fr', gap: '1.25rem' }}>
+          {/* Left: Test List */}
+          <div className="card" style={{ margin: 0, padding: '1rem' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-muted)', marginBottom: '0.75rem' }}>
+              Select a Test to Inspect
             </div>
 
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.45rem', maxHeight: '680px', overflowY: 'auto' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '0.5rem', maxHeight: '700px', overflowY: 'auto' }}>
               {runs.map((r) => {
                 const isSelected = r.run_id === activeRun?.run_id;
                 return (
@@ -92,28 +110,28 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
                     key={r.run_id}
                     onClick={() => setSelectedRunId(r.run_id)}
                     style={{
-                      padding: '0.65rem 0.75rem',
-                      borderRadius: '5px',
-                      backgroundColor: isSelected ? 'var(--bg-surface-elevated)' : 'var(--bg-app)',
-                      border: isSelected ? '1px solid var(--cyan-primary)' : '1px solid var(--border-subtle)',
+                      padding: '0.75rem 0.85rem',
+                      borderRadius: 'var(--radius-md)',
+                      backgroundColor: isSelected ? 'var(--primary-subtle)' : 'var(--bg-surface-subtle)',
+                      border: isSelected ? '1px solid var(--primary-border)' : '1px solid var(--border-default)',
                       cursor: 'pointer',
                       transition: 'all 0.12s ease',
                     }}
                   >
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.2rem' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '0.35rem' }}>
                       <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                        {r.run_id.slice(-14)}
+                        {r.run_id.slice(-12)}
                       </span>
-                      {getSourceChip(r.variant_source)}
+                      {getSourceBadge(r.variant_source)}
                     </div>
 
-                    <div style={{ fontWeight: 600, fontSize: '0.82rem', color: '#fff', marginBottom: '0.35rem' }}>
+                    <div style={{ fontWeight: 600, fontSize: '0.86rem', color: 'var(--text-primary)', marginBottom: '0.45rem' }}>
                       {r.name}
                     </div>
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
-                      {getVerdictChip(r.verdict)}
-                      <span className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-subtle)' }}>
+                      {getResultBadge(r.verdict)}
+                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                         {r.trace?.steps?.length || 0} steps
                       </span>
                     </div>
@@ -123,142 +141,119 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
             </div>
           </div>
 
-          {/* Right: Forensic Trace & Attack Path Inspector */}
+          {/* Right: Step-by-Step Details */}
           {activeRun && (
-            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-              {/* Active Run Header */}
-              <div className="panel" style={{ margin: 0, padding: '1rem' }}>
-                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '0.5rem' }}>
+            <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+              {/* Test Header Card */}
+              <div className="card" style={{ margin: 0, padding: '1.25rem' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '0.75rem', marginBottom: '0.75rem' }}>
                   <div>
-                    <h3 style={{ fontSize: '1rem', color: '#fff', fontWeight: 600, marginBottom: '0.2rem' }}>
+                    <h2 style={{ fontSize: '1.1rem', color: 'var(--text-primary)', fontWeight: 700, marginBottom: '0.25rem' }}>
                       {activeRun.name}
-                    </h3>
-                    <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                      <span>Run ID: <code className="mono" style={{ color: '#cbd5e1' }}>{activeRun.run_id}</code></span>
+                    </h2>
+                    <div style={{ display: 'flex', gap: '0.75rem', fontSize: '0.8rem', color: 'var(--text-muted)', flexWrap: 'wrap' }}>
+                      <span>Run ID: <code className="mono">{activeRun.run_id}</code></span>
                       <span>•</span>
-                      <span>Target: <strong style={{ color: '#00e5ff' }}>{activeRun.target_id}</strong></span>
+                      <span>Target: <strong style={{ color: 'var(--text-primary)' }}>{activeRun.target_id}</strong></span>
                       <span>•</span>
-                      <span>Round: <strong>{activeRun.round}</strong></span>
-                      <span>•</span>
-                      <span>Parent: <span className="mono">{activeRun.parent_run_id || 'Root (Seed)'}</span></span>
+                      <span>Type: <span style={{ textTransform: 'capitalize' }}>{activeRun.kind}</span></span>
+                      {activeRun.round > 0 && (
+                        <>
+                          <span>•</span>
+                          <span>Round: <strong>{activeRun.round}</strong></span>
+                        </>
+                      )}
                     </div>
                   </div>
-                  {getVerdictChip(activeRun.verdict)}
+                  <div>{getResultBadge(activeRun.verdict)}</div>
+                </div>
+
+                <div
+                  style={{
+                    padding: '0.65rem 0.85rem',
+                    backgroundColor: activeRun.verdict === 'confirmed_exploit' ? 'var(--danger-subtle)' : activeRun.verdict === 'blocked' ? 'var(--success-subtle)' : 'var(--bg-surface-subtle)',
+                    border: `1px solid ${activeRun.verdict === 'confirmed_exploit' ? 'var(--danger-border)' : activeRun.verdict === 'blocked' ? 'var(--success-border)' : 'var(--border-default)'}`,
+                    borderRadius: 'var(--radius-sm)',
+                    fontSize: '0.84rem',
+                    color: activeRun.verdict === 'confirmed_exploit' ? 'var(--danger)' : activeRun.verdict === 'blocked' ? 'var(--success)' : 'var(--text-secondary)',
+                  }}
+                >
+                  <strong>Result Explanation: </strong>
+                  {activeRun.verdict === 'confirmed_exploit'
+                    ? 'The attack succeeded. The agent performed an unauthorized tool action or leaked sensitive data.'
+                    : activeRun.verdict === 'blocked'
+                    ? 'The attack was blocked. Guardrails successfully intercepted the prohibited operation before it took effect.'
+                    : activeRun.verdict === 'legitimate_pass'
+                    ? 'The test passed. Normal support utility completed without issues.'
+                    : 'The test completed and requires human inspection.'}
                 </div>
               </div>
 
-              {/* Attack Path Flowchart Sequence (P1 Visualization) */}
-              <div className="panel" style={{ margin: 0, padding: '1rem' }}>
-                <div className="panel-header" style={{ marginBottom: '0.65rem' }}>
-                  <h4 className="panel-title" style={{ fontSize: '0.84rem' }}>
-                    <Cpu size={14} color="#00e5ff" /> Attack Path Flowchart (P1 Sequence View)
-                  </h4>
-                  <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    {activeRun.trace?.steps?.length || 0} Trace Events
+              {/* Execution Steps Timeline */}
+              <div className="card" style={{ margin: 0, padding: '1.25rem' }}>
+                <div className="card-header">
+                  <div>
+                    <h3 className="card-title">Execution Timeline</h3>
+                    <p className="card-subtitle">Every step taken by the agent during this test</p>
+                  </div>
+                  <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                    {activeRun.trace?.steps?.length || 0} event(s)
                   </span>
                 </div>
 
-                <div className="path-container">
-                  {activeRun.trace?.steps?.map((step: TraceStep, index: number) => {
-                    const isFinalReply = step.step_type === 'final_reply';
-                    const isTool = step.step_type === 'tool_call';
-                    const isBlocked = step.content?.includes('blocked') || step.content?.includes('Policy Guard');
-
-                    return (
-                      <div
-                        key={index}
-                        className="path-node"
-                        style={{
-                          borderColor: isFinalReply
-                            ? 'rgba(236, 72, 153, 0.4)'
-                            : isBlocked
-                            ? 'rgba(16, 185, 129, 0.4)'
-                            : undefined,
-                          backgroundColor: isFinalReply
-                            ? 'rgba(236, 72, 153, 0.04)'
-                            : undefined,
-                        }}
-                      >
-                        <span className="node-idx">{index + 1}</span>
-                        <div className="node-body">
-                          <div className="node-header">
-                            {getStepTypeBadge(step.step_type)}
-                            {step.tool_name && (
-                              <span className="mono" style={{ fontSize: '0.74rem', color: '#f59e0b' }}>
-                                invoke: {step.tool_name}()
-                              </span>
-                            )}
+                {(!activeRun.trace?.steps || activeRun.trace.steps.length === 0) ? (
+                  <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                    No recorded steps in this run trace.
+                  </div>
+                ) : (
+                  <div className="trace-timeline">
+                    {activeRun.trace.steps.map((step, idx) => (
+                      <div key={idx} className="trace-step-card">
+                        <div className="trace-step-header">
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem' }}>
+                            {getStepIcon(step.step_type)}
+                            <span className="trace-step-type">
+                              Step {idx + 1}: {getStepLabel(step.step_type)}
+                            </span>
                           </div>
-                          <div className="node-content">
-                            {step.content || JSON.stringify(step.tool_args)}
-                          </div>
+                          {step.tool_name && (
+                            <span className="badge badge-neutral mono" style={{ fontSize: '0.72rem' }}>
+                              tool: {step.tool_name}
+                            </span>
+                          )}
                         </div>
+
+                        {step.content && (
+                          <div className="trace-step-content mono">
+                            {step.content}
+                          </div>
+                        )}
+
+                        {step.tool_args && (
+                          <div style={{ marginTop: '0.45rem' }}>
+                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
+                              Arguments:
+                            </div>
+                            <pre
+                              className="mono"
+                              style={{
+                                backgroundColor: 'var(--bg-surface-subtle)',
+                                padding: '0.5rem 0.75rem',
+                                borderRadius: 'var(--radius-sm)',
+                                border: '1px solid var(--border-light)',
+                                fontSize: '0.8rem',
+                                color: 'var(--text-primary)',
+                                overflowX: 'auto',
+                              }}
+                            >
+                              {JSON.stringify(step.tool_args, null, 2)}
+                            </pre>
+                          </div>
+                        )}
                       </div>
-                    );
-                  })}
-                </div>
-              </div>
-
-              {/* Dense Step Trace Table */}
-              <div className="panel" style={{ margin: 0, padding: '1rem' }}>
-                <div className="panel-header" style={{ marginBottom: '0.65rem' }}>
-                  <h4 className="panel-title" style={{ fontSize: '0.84rem' }}>
-                    Raw Execution Trace Records
-                  </h4>
-                  <span className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-muted)' }}>
-                    Deterministic Chronological Order
-                  </span>
-                </div>
-
-                <div className="table-container">
-                  <table>
-                    <thead>
-                      <tr>
-                        <th>#</th>
-                        <th>Step Type</th>
-                        <th>Action / Tool</th>
-                        <th>Payload / Evidence Content</th>
-                        <th>Timestamp</th>
-                      </tr>
-                    </thead>
-                    <tbody>
-                      {activeRun.trace?.steps?.map((step: TraceStep, idx: number) => {
-                        const isFinalReply = step.step_type === 'final_reply';
-                        return (
-                          <tr
-                            key={idx}
-                            style={{
-                              backgroundColor: isFinalReply ? 'rgba(236, 72, 153, 0.05)' : undefined,
-                            }}
-                          >
-                            <td className="mono" style={{ color: 'var(--text-muted)', fontSize: '0.75rem' }}>
-                              {idx + 1}
-                            </td>
-                            <td>{getStepTypeBadge(step.step_type)}</td>
-                            <td className="mono" style={{ fontSize: '0.78rem', color: step.tool_name ? '#f59e0b' : 'var(--text-subtle)' }}>
-                              {step.tool_name ? `${step.tool_name}()` : '-'}
-                            </td>
-                            <td style={{ fontSize: '0.78rem' }}>
-                              {step.tool_args && (
-                                <pre className="mono" style={{ fontSize: '0.74rem', color: '#fde68a', margin: '0 0 0.25rem 0', background: 'var(--bg-app)', padding: '0.3rem 0.5rem', borderRadius: '3px' }}>
-                                  {JSON.stringify(step.tool_args, null, 2)}
-                                </pre>
-                              )}
-                              {step.content && (
-                                <span style={{ wordBreak: 'break-all', color: isFinalReply ? '#fbcfe8' : '#e2e8f0' }}>
-                                  {step.content}
-                                </span>
-                              )}
-                            </td>
-                            <td className="mono" style={{ fontSize: '0.7rem', color: 'var(--text-subtle)' }}>
-                              {step.timestamp ? new Date(step.timestamp).toLocaleTimeString() : '-'}
-                            </td>
-                          </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
-                </div>
+                    ))}
+                  </div>
+                )}
               </div>
             </div>
           )}

@@ -15,19 +15,16 @@ import {
   Shield,
   Target,
   Play,
-  Terminal,
+  ListOrdered,
   AlertTriangle,
+  ShieldCheck,
   Zap,
   BarChart2,
   FileText,
-  Lock,
-  Wifi,
-  WifiOff,
-  PlusCircle,
-  Activity,
-  Layers,
-  ChevronRight,
+  CheckCircle2,
+  Plus,
   RefreshCw,
+  ChevronRight,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -57,7 +54,7 @@ export const App: React.FC = () => {
         activeAsmt = await api.getAssessment(existing[0].id);
       } else {
         activeAsmt = await api.createAssessment(
-          'AgentBreak Demo Benchmark Run',
+          'AgentBreak Security Assessment',
           'demo-company-assistant'
         );
       }
@@ -152,7 +149,7 @@ export const App: React.FC = () => {
         target_component: 'tool_calls',
         status: 'enforced',
         is_stub: false,
-        description: 'Enforces @company.com restriction.',
+        description: 'Enforces @company.com restriction on email tool calls.',
         mitigation_rule: 'executed_outside_policy',
       },
       {
@@ -201,7 +198,7 @@ export const App: React.FC = () => {
       setRuns([]);
       setFindings([]);
       setDefenses(created.defenses || []);
-      setActiveTab('target');
+      setActiveTab('run');
     } catch (err: any) {
       alert(`Failed to create assessment: ${err.message}`);
     }
@@ -210,55 +207,56 @@ export const App: React.FC = () => {
   const getPageTitle = (tab: string) => {
     switch (tab) {
       case 'overview':
-        return 'Security Assessment Overview';
+        return 'Security Overview';
       case 'target':
-        return 'Target Agent Configuration';
+        return 'Targets';
       case 'run':
-        return 'Benchmark Test Execution';
+        return 'Run Security Test';
       case 'trace':
-        return 'Runs & Execution Traces';
+        return 'Test Runs';
       case 'findings':
-        return 'Discovered Security Findings';
+        return 'Problems Found';
       case 'defenses':
-        return 'Active Policy Defenses';
+        return 'Protection';
       case 'challenge':
-        return 'Adaptive Attacker Challenge';
+        return 'Try a New Attack';
       case 'retest':
-        return 'Comparative Retest Scorecard';
+        return 'Compare Results';
       case 'report':
-        return 'Security Audit Report';
+        return 'Security Report';
       case 'evidence':
-        return 'Cryptographic Evidence Integrity';
+        return 'Check Evidence';
       default:
-        return 'Assessment Console';
+        return 'Overview';
     }
   };
 
   return (
     <div className="app-layout">
       {/* -------------------------------------------------------------------
-          Stable Vertical Navigation Sidebar
+          Sidebar Navigation
       ------------------------------------------------------------------- */}
       <aside className="sidebar">
         <div className="sidebar-header">
-          <div className="brand-text">
-            <Shield size={18} color="#00e5ff" />
-            <span>AgentBreak</span>
+          <div className="brand-wrapper">
+            <div className="brand-icon">
+              <Shield size={16} />
+            </div>
+            <span className="brand-text">AgentBreak</span>
           </div>
-          <span className="brand-tag">v2</span>
         </div>
 
         <div className="sidebar-nav">
-          {/* Group 1: Core Platform */}
+          {/* Navigation Group 1: Overview */}
           <div>
-            <div className="nav-group-title">Core Platform</div>
+            <div className="nav-group-title">Overview</div>
             <div className="nav-group-items">
               <button
                 className={`sidebar-item ${activeTab === 'overview' ? 'active' : ''}`}
                 onClick={() => setActiveTab('overview')}
               >
                 <span className="sidebar-label">
-                  <Activity size={15} className="sidebar-icon" /> Overview
+                  <Shield size={16} /> Overview
                 </span>
               </button>
 
@@ -267,7 +265,7 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('target')}
               >
                 <span className="sidebar-label">
-                  <Target size={15} className="sidebar-icon" /> Target Setup
+                  <Target size={16} /> Targets
                 </span>
               </button>
 
@@ -276,25 +274,25 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('run')}
               >
                 <span className="sidebar-label">
-                  <Play size={15} className="sidebar-icon" /> Execute Tests
+                  <Play size={16} /> Run Security Test
                 </span>
               </button>
             </div>
           </div>
 
-          {/* Group 2: Analysis & Defense */}
+          {/* Navigation Group 2: Security */}
           <div>
-            <div className="nav-group-title">Analysis & Defense</div>
+            <div className="nav-group-title">Security</div>
             <div className="nav-group-items">
               <button
                 className={`sidebar-item ${activeTab === 'trace' ? 'active' : ''}`}
                 onClick={() => setActiveTab('trace')}
               >
                 <span className="sidebar-label">
-                  <Terminal size={15} className="sidebar-icon" /> Runs & Traces
+                  <ListOrdered size={16} /> Test Runs
                 </span>
                 {runs.length > 0 && (
-                  <span className="mono" style={{ fontSize: '0.68rem', color: 'var(--text-muted)' }}>
+                  <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
                     {runs.length}
                   </span>
                 )}
@@ -305,12 +303,12 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('findings')}
               >
                 <span className="sidebar-label">
-                  <AlertTriangle size={15} className="sidebar-icon" /> Findings
+                  <AlertTriangle size={16} /> Problems Found
                 </span>
                 {findings.length > 0 && (
                   <span
-                    className="chip chip-exploit"
-                    style={{ fontSize: '0.62rem', padding: '0.1rem 0.35rem' }}
+                    className="badge badge-danger"
+                    style={{ fontSize: '0.7rem', padding: '0.1rem 0.4rem' }}
                   >
                     {findings.length}
                   </span>
@@ -322,31 +320,31 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('defenses')}
               >
                 <span className="sidebar-label">
-                  <Shield size={15} className="sidebar-icon" /> Defenses
+                  <ShieldCheck size={16} /> Protection
                 </span>
               </button>
-            </div>
-          </div>
 
-          {/* Group 3: Adaptive & Audit */}
-          <div>
-            <div className="nav-group-title">Adaptive & Audit</div>
-            <div className="nav-group-items">
               <button
                 className={`sidebar-item ${activeTab === 'challenge' ? 'active' : ''}`}
                 onClick={() => setActiveTab('challenge')}
               >
                 <span className="sidebar-label">
-                  <Zap size={15} className="sidebar-icon" /> Challenge
+                  <Zap size={16} /> Try a New Attack
                 </span>
               </button>
+            </div>
+          </div>
 
+          {/* Navigation Group 3: Reports */}
+          <div>
+            <div className="nav-group-title">Reports</div>
+            <div className="nav-group-items">
               <button
                 className={`sidebar-item ${activeTab === 'retest' ? 'active' : ''}`}
                 onClick={() => setActiveTab('retest')}
               >
                 <span className="sidebar-label">
-                  <BarChart2 size={15} className="sidebar-icon" /> Retest Scorecard
+                  <BarChart2 size={16} /> Compare Results
                 </span>
               </button>
 
@@ -355,7 +353,7 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('report')}
               >
                 <span className="sidebar-label">
-                  <FileText size={15} className="sidebar-icon" /> Security Report
+                  <FileText size={16} /> Security Report
                 </span>
               </button>
 
@@ -364,87 +362,83 @@ export const App: React.FC = () => {
                 onClick={() => setActiveTab('evidence')}
               >
                 <span className="sidebar-label">
-                  <Lock size={15} className="sidebar-icon" /> Evidence Integrity
+                  <CheckCircle2 size={16} /> Check Evidence
                 </span>
               </button>
             </div>
           </div>
         </div>
 
-        {/* Sidebar Footer Info */}
+        {/* Sidebar Footer */}
         <div className="sidebar-footer">
-          <div style={{ fontSize: '0.74rem' }}>
-            <span style={{ color: 'var(--text-subtle)', display: 'block', marginBottom: '0.1rem' }}>
-              Active Target
+          <div style={{ fontSize: '0.78rem' }}>
+            <span style={{ color: 'var(--text-muted)', display: 'block', fontSize: '0.72rem' }}>
+              Testing Agent
             </span>
-            <strong className="mono" style={{ color: '#00e5ff', fontSize: '0.75rem' }}>
-              {currentAssessment?.target_id || 'demo-company-assistant'}
+            <strong style={{ color: 'var(--text-primary)', wordBreak: 'break-all' }}>
+              {currentAssessment?.target_name || currentAssessment?.target_id || 'demo-company-assistant'}
             </strong>
           </div>
 
-          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+          <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '0.2rem' }}>
             {backendOnline ? (
-              <span className="chip chip-blocked" style={{ fontSize: '0.65rem' }}>
-                <Wifi size={10} /> Live API
+              <span className="badge badge-success" style={{ fontSize: '0.72rem' }}>
+                <span style={{ width: 6, height: 6, borderRadius: '50%', backgroundColor: 'var(--success)', display: 'inline-block' }} />
+                Live API
               </span>
             ) : (
-              <span className="chip chip-recorded" style={{ fontSize: '0.65rem' }}>
-                <WifiOff size={10} /> Offline Mode
+              <span className="badge badge-warning" style={{ fontSize: '0.72rem' }}>
+                Offline Mode
               </span>
             )}
             <button
               className="btn btn-secondary btn-sm"
               onClick={handleRefreshState}
-              title="Refresh state"
-              style={{ padding: '0.2rem 0.4rem' }}
+              title="Refresh data"
+              style={{ padding: '0.25rem 0.45rem' }}
             >
-              <RefreshCw size={11} />
+              <RefreshCw size={12} />
             </button>
           </div>
         </div>
       </aside>
 
       {/* -------------------------------------------------------------------
-          Main Viewport & Top Bar
+          Main Viewport & Top Header
       ------------------------------------------------------------------- */}
       <div className="main-wrapper">
         <header className="top-bar">
           <div className="top-breadcrumbs">
             <span>AgentBreak</span>
-            <ChevronRight size={13} color="var(--border-medium)" />
+            <ChevronRight size={14} color="var(--border-dark)" />
             <span className="crumb-current">{getPageTitle(activeTab)}</span>
           </div>
 
           <div className="top-actions">
-            <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-              Session: {currentAssessment?.id ? currentAssessment.id.slice(0, 18) : 'loading...'}
-            </span>
-
             {!isOfflineMode && (
               <button className="btn btn-secondary btn-sm" onClick={handleNewAssessment}>
-                <PlusCircle size={13} /> New Session
+                <Plus size={14} /> New Test Session
               </button>
             )}
 
             {isOfflineMode ? (
               <button className="btn btn-primary btn-sm" onClick={initialize}>
-                <RefreshCw size={12} /> Connect Live API
+                <RefreshCw size={13} /> Reconnect API
               </button>
             ) : (
               <button className="btn btn-secondary btn-sm" onClick={loadRecordedFallback}>
-                Inspect Offline Fixture
+                Offline Fixture
               </button>
             )}
           </div>
         </header>
 
-        {/* Alert Banner for Offline Mode or Errors */}
+        {/* Notice for Offline Mode */}
         {!backendOnline && (
-          <div className="alert-banner alert-warning" style={{ margin: '0.75rem 1.5rem 0 1.5rem' }}>
+          <div className="alert-banner alert-warning" style={{ margin: '1rem 1.75rem 0 1.75rem' }}>
             <span>
-              <strong>Backend Offline:</strong> Displaying sanitized baseline fixture from{' '}
-              <code className="mono">data/recorded/demo_recorded_run.json</code>. Start the backend with{' '}
-              <code className="mono">.\dev.ps1</code> to execute live runs.
+              <strong>Backend Offline:</strong> Showing baseline fixture data. Start the backend with{' '}
+              <code className="mono">.\dev.ps1</code> to run live tests.
             </span>
             <button className="btn btn-secondary btn-sm" onClick={initialize}>
               Retry Connection
@@ -452,11 +446,12 @@ export const App: React.FC = () => {
           </div>
         )}
 
-        {/* Content Page Container */}
+        {/* Content Container */}
         <main className="content-container">
           {loading ? (
-            <div style={{ padding: '4rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-              Loading AgentBreak Security Platform...
+            <div className="empty-state">
+              <div className="empty-state-title">Loading AgentBreak...</div>
+              <div className="empty-state-desc">Connecting to security testing service</div>
             </div>
           ) : (
             <>

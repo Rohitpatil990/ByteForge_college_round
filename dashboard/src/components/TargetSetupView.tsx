@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { TargetConfig } from '../types';
 import { api } from '../api';
-import { Target, CheckCircle, AlertOctagon, RefreshCw, Key, Shield, FileCode } from 'lucide-react';
+import { Target, CheckCircle2, AlertCircle, RefreshCw } from 'lucide-react';
 
 interface Props {
   currentAssessmentId: string;
@@ -44,7 +44,7 @@ export const TargetSetupView: React.FC<Props> = ({
     setSuccessMsg(null);
     try {
       await api.assignTarget(currentAssessmentId, config.id);
-      setSuccessMsg(`Target '${config.name}' assigned to assessment '${currentAssessmentId}'.`);
+      setSuccessMsg(`Target '${config.name}' is now active for this assessment.`);
       onTargetSelected(config.id, config.name);
     } catch (err: any) {
       setError(err.message || 'Failed to assign target');
@@ -57,92 +57,89 @@ export const TargetSetupView: React.FC<Props> = ({
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <Target size={18} color="#00e5ff" /> Target Agent Configurations
-          </h2>
+          <h1 className="page-title">Targets</h1>
           <p className="page-desc">
-            Load and validate YAML configurations from <code className="mono">target/configs/</code>.
-            Only strictly validated agent targets are eligible for automated testing.
+            Choose the AI agent configuration you want to test. Target settings define allowed tools, boundaries, and instructions.
           </p>
         </div>
         <button className="btn btn-secondary btn-sm" onClick={fetchConfigs} disabled={loading}>
-          <RefreshCw size={12} className={loading ? 'animate-spin' : ''} /> Reload Configs
+          <RefreshCw size={13} className={loading ? 'animate-spin' : ''} /> Refresh Targets
         </button>
       </div>
 
       {error && <div className="alert-banner alert-danger">{error}</div>}
-      {successMsg && <div className="alert-banner alert-info">{successMsg}</div>}
+      {successMsg && <div className="alert-banner alert-success">{successMsg}</div>}
 
-      <div className="panel">
-        <div className="panel-header">
+      <div className="card">
+        <div className="card-header">
           <div>
-            <h3 className="panel-title">Available Target Configurations</h3>
-            <p className="panel-subtitle">Parsed from repository file system</p>
+            <h2 className="card-title">Configured Agents</h2>
+            <p className="card-subtitle">Verified agent configurations ready for testing</p>
           </div>
-          <span className="mono" style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-            Found {configs.length} file(s)
+          <span style={{ fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+            {configs.length} available target(s)
           </span>
         </div>
 
         {loading ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            Parsing target configurations...
+          <div style={{ padding: '2.5rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+            Loading target configurations...
           </div>
         ) : configs.length === 0 ? (
-          <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-            No target configurations found in <code className="mono">target/configs/</code>.
+          <div className="empty-state">
+            <div className="empty-state-title">No targets found</div>
+            <div className="empty-state-desc">
+              No valid agent configuration files found in the target directory.
+            </div>
           </div>
         ) : (
           <div className="table-container">
             <table>
               <thead>
                 <tr>
-                  <th>Target ID</th>
-                  <th>Display Name</th>
-                  <th>Schema Status</th>
-                  <th>Validation Message</th>
-                  <th>Selection</th>
+                  <th>Agent Name</th>
+                  <th>Configuration ID</th>
+                  <th>Status</th>
+                  <th>Validation</th>
+                  <th style={{ textAlign: 'right' }}>Action</th>
                 </tr>
               </thead>
               <tbody>
                 {configs.map((cfg) => {
                   const isCurrent = cfg.id === currentTargetId;
                   return (
-                    <tr key={cfg.id} style={{ opacity: cfg.valid ? 1 : 0.65 }}>
-                      <td className="mono" style={{ fontWeight: 600 }}>
-                        {cfg.id}
-                        {cfg.id === 'demo-company-assistant' && (
-                          <span className="chip chip-seed" style={{ marginLeft: '0.45rem', fontSize: '0.62rem' }}>
-                            Default Sample
-                          </span>
-                        )}
+                    <tr key={cfg.id} style={{ opacity: cfg.valid ? 1 : 0.7 }}>
+                      <td>
+                        <strong style={{ color: 'var(--text-primary)' }}>{cfg.name}</strong>
                       </td>
-                      <td style={{ fontWeight: 500, color: '#fff' }}>{cfg.name}</td>
+                      <td className="mono" style={{ fontSize: '0.8rem', color: 'var(--text-secondary)' }}>
+                        {cfg.id}
+                      </td>
                       <td>
                         {cfg.valid ? (
-                          <span className="chip chip-blocked">
-                            <CheckCircle size={10} /> Valid
+                          <span className="badge badge-success">
+                            <CheckCircle2 size={12} /> Valid configuration
                           </span>
                         ) : (
-                          <span className="chip chip-exploit">
-                            <AlertOctagon size={10} /> Invalid
+                          <span className="badge badge-danger">
+                            <AlertCircle size={12} /> Invalid configuration
                           </span>
                         )}
                       </td>
-                      <td style={{ color: cfg.valid ? 'var(--text-muted)' : '#f87171', fontSize: '0.78rem' }}>
-                        {cfg.valid ? 'Passes all schema constraints' : cfg.validation_error}
+                      <td style={{ fontSize: '0.82rem', color: cfg.valid ? 'var(--text-muted)' : 'var(--danger)' }}>
+                        {cfg.valid ? 'Ready for security testing' : cfg.validation_error}
                       </td>
-                      <td>
+                      <td style={{ textAlign: 'right' }}>
                         <button
                           className={`btn ${isCurrent ? 'btn-secondary' : cfg.valid ? 'btn-primary' : 'btn-secondary'} btn-sm`}
                           disabled={!cfg.valid || submitting || isCurrent}
                           onClick={() => handleSelect(cfg)}
                           style={{
-                            color: isCurrent ? '#10b981' : undefined,
-                            borderColor: isCurrent ? 'rgba(16, 185, 129, 0.4)' : undefined,
+                            color: isCurrent ? 'var(--success)' : undefined,
+                            borderColor: isCurrent ? 'var(--success-border)' : undefined,
                           }}
                         >
-                          {isCurrent ? 'Currently Active' : cfg.valid ? 'Select Target' : 'Rejected'}
+                          {isCurrent ? 'Currently Active' : cfg.valid ? 'Select Agent' : 'Invalid'}
                         </button>
                       </td>
                     </tr>
@@ -152,60 +149,6 @@ export const TargetSetupView: React.FC<Props> = ({
             </table>
           </div>
         )}
-      </div>
-
-      {/* Target Specifications Detail */}
-      <div className="panel">
-        <div className="panel-header">
-          <h3 className="panel-title">
-            <FileCode size={15} /> Active Target Specifications (<code className="mono">demo-company-assistant</code>)
-          </h3>
-          <span className="chip chip-seed">Sandboxed Synthetic Agent</span>
-        </div>
-
-        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(220px, 1fr))', gap: '0.85rem' }}>
-          <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-              Role Constraint
-            </span>
-            <strong style={{ color: '#fff', fontSize: '0.84rem' }}>support</strong>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
-              Rate-limited to 5 customer records/run
-            </span>
-          </div>
-
-          <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-              Policy Reference
-            </span>
-            <strong className="mono" style={{ color: '#fff', fontSize: '0.84rem' }}>policy.yaml</strong>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
-              Outbound email strictly restricted to @company.com
-            </span>
-          </div>
-
-          <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-              Synthetic Canary Token
-            </span>
-            <code className="mono" style={{ color: '#00e5ff', fontSize: '0.82rem' }}>
-              CANARY_TOKEN_DEMO_SECRET_48291
-            </code>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
-              Used to track leakage in args and reply
-            </span>
-          </div>
-
-          <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-            <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-              Guard Fail-Mode
-            </span>
-            <strong style={{ color: '#10b981', fontSize: '0.84rem' }}>fail_closed</strong>
-            <span style={{ fontSize: '0.72rem', color: 'var(--text-muted)', display: 'block', marginTop: '0.15rem' }}>
-              Unmatched tool calls blocked by default
-            </span>
-          </div>
-        </div>
       </div>
     </div>
   );

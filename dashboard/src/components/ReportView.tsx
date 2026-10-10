@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
-import { AssessmentReport } from '../types';
+import { AssessmentReport, Finding } from '../types';
 import { api } from '../api';
-import { FileText, Download, ShieldCheck, AlertTriangle, Shield, CheckCircle, Info } from 'lucide-react';
+import { FileText, Download, ShieldCheck, AlertTriangle, Shield, CheckCircle2, Lock } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
@@ -35,7 +35,7 @@ export const ReportView: React.FC<Props> = ({ assessmentId }) => {
     const url = URL.createObjectURL(blob);
     const a = document.createElement('a');
     a.href = url;
-    a.download = `agentbreak-audit-report-${assessmentId}.json`;
+    a.download = `agentbreak-security-report-${assessmentId}.json`;
     a.click();
     URL.revokeObjectURL(url);
   };
@@ -44,16 +44,14 @@ export const ReportView: React.FC<Props> = ({ assessmentId }) => {
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <FileText size={18} color="#00e5ff" /> Security Assessment Audit Report
-          </h2>
+          <h1 className="page-title">Security Report</h1>
           <p className="page-desc">
-            Executive-grade security report generated directly from saved run traces and hash-chained evidence.
+            Formal assessment record summarizing security test results, problems found, and protective guardrails.
           </p>
         </div>
         {report && (
           <button className="btn btn-secondary btn-sm" onClick={handleExportJson}>
-            <Download size={13} /> Export Raw JSON Report
+            <Download size={14} /> Download JSON Report
           </button>
         )}
       </div>
@@ -61,178 +59,163 @@ export const ReportView: React.FC<Props> = ({ assessmentId }) => {
       {error && <div className="alert-banner alert-danger">{error}</div>}
 
       {loading ? (
-        <div className="panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          Compiling report metrics from assessment database...
+        <div className="empty-state">
+          <div className="empty-state-title">Compiling security report...</div>
+          <div className="empty-state-desc">Aggregating test metrics and verified findings</div>
         </div>
       ) : !report ? (
-        <div className="panel" style={{ padding: '3rem', textAlign: 'center', color: 'var(--text-muted)' }}>
-          No saved assessment evidence available to generate report.
+        <div className="empty-state">
+          <div className="empty-state-title">No report available</div>
+          <div className="empty-state-desc">
+            Run tests to generate an assessment report.
+          </div>
         </div>
       ) : (
-        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.15rem' }}>
-          {/* Formal Audit Header */}
-          <div className="panel" style={{ padding: '1.25rem', background: 'linear-gradient(180deg, #161b24 0%, #12151c 100%)' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', marginBottom: '1rem', borderBottom: '1px solid var(--border-subtle)', paddingBottom: '0.85rem' }}>
+        <div style={{ display: 'flex', flexDirection: 'column', gap: '1.25rem' }}>
+          {/* Executive Summary Card */}
+          <div className="card" style={{ padding: '1.5rem' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', flexWrap: 'wrap', gap: '1rem', borderBottom: '1px solid var(--border-light)', paddingBottom: '1rem', marginBottom: '1rem' }}>
               <div>
-                <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', textTransform: 'uppercase', letterSpacing: '0.05em' }}>
-                  AgentBreak Security Benchmark Audit
+                <span style={{ fontSize: '0.74rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', letterSpacing: '0.04em' }}>
+                  Assessment Summary
                 </span>
-                <h3 style={{ fontSize: '1.2rem', fontWeight: 700, color: '#fff' }}>
+                <h2 style={{ fontSize: '1.25rem', fontWeight: 700, color: 'var(--text-primary)', marginTop: '0.15rem' }}>
                   {report.assessment_name}
-                </h3>
-                <span className="mono" style={{ fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                  Target: <strong style={{ color: '#00e5ff' }}>{report.target_name} ({report.target_id})</strong>
-                </span>
+                </h2>
+                <div style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', marginTop: '0.2rem' }}>
+                  Target Agent: <strong style={{ color: 'var(--text-primary)' }}>{report.target_name} ({report.target_id})</strong>
+                </div>
               </div>
 
-              <div style={{ textAlign: 'right', fontSize: '0.75rem', color: 'var(--text-muted)' }}>
-                <div>Audit Timestamp: <span className="mono" style={{ color: '#fff' }}>{new Date(report.generated_at).toLocaleString()}</span></div>
-                <div>Evidence Chain: <strong className="mono" style={{ color: '#10b981' }}>{report.evidence_integrity.chain_length} Block(s) Verified</strong></div>
+              <div style={{ textAlign: 'right', fontSize: '0.8rem', color: 'var(--text-muted)' }}>
+                <div>Generated: <span style={{ color: 'var(--text-primary)' }}>{new Date(report.generated_at).toLocaleString()}</span></div>
+                <div style={{ marginTop: '0.2rem' }}>
+                  Evidence Seal: <strong style={{ color: 'var(--success)' }}>{report.evidence_integrity.chain_length} Verified Blocks</strong>
+                </div>
               </div>
             </div>
 
-            {/* Mandatory Outcome Statement Callout */}
+            {/* Finding statement */}
             <div
               style={{
                 padding: '0.85rem 1rem',
-                backgroundColor: 'rgba(0, 229, 255, 0.05)',
-                border: '1px solid var(--cyan-border)',
-                borderRadius: '4px',
-                fontSize: '0.86rem',
-                color: '#e0f2fe',
+                backgroundColor: 'var(--primary-subtle)',
+                borderRadius: 'var(--radius-sm)',
+                border: '1px solid var(--primary-border)',
+                fontSize: '0.88rem',
+                color: 'var(--text-primary)',
                 lineHeight: '1.5',
               }}
             >
-              <strong style={{ color: '#00e5ff' }}>Measured Discovery Outcome: </strong>
+              <strong>Key Finding: </strong>
               {report.summary.exploit_breakdown_statement}
             </div>
           </div>
 
-          {/* Metrics Summary Grid */}
-          <div className="kpi-row">
-            <div className="kpi-block">
-              <span className="kpi-block-label">Attacks Dispatched</span>
-              <span className="kpi-block-val">{report.summary.attack_runs}</span>
-              <span className="kpi-block-sub">Total runs: {report.summary.total_runs}</span>
+          {/* Test Outcomes Grid */}
+          <div className="summary-grid">
+            <div className="summary-card primary">
+              <div className="summary-card-header">
+                <span className="summary-label">Total Tests</span>
+              </div>
+              <div className="summary-number">{report.summary.total_runs}</div>
+              <div className="summary-desc">{report.summary.attack_runs} attacks dispatched</div>
             </div>
 
-            <div className="kpi-block">
-              <span className="kpi-block-label">Confirmed Exploits</span>
-              <span className="kpi-block-val" style={{ color: '#fb7185' }}>{report.summary.confirmed_exploits}</span>
-              <span className="kpi-block-sub">
-                Seed: {report.findings_metrics.seed_findings_count} | Adaptive: {report.findings_metrics.adaptive_generated_findings_count}
-              </span>
+            <div className="summary-card danger">
+              <div className="summary-card-header">
+                <span className="summary-label">Attacks Succeeded</span>
+              </div>
+              <div className="summary-number">{report.summary.confirmed_exploits}</div>
+              <div className="summary-desc">
+                {report.findings_metrics.seed_findings_count} seed, {report.findings_metrics.adaptive_generated_findings_count} adaptive
+              </div>
             </div>
 
-            <div className="kpi-block">
-              <span className="kpi-block-label">Recorded Fixtures</span>
-              <span className="kpi-block-val" style={{ color: '#f59e0b' }}>{report.findings_metrics.recorded_findings_count}</span>
-              <span className="kpi-block-sub">Separated (non-adaptive)</span>
+            <div className="summary-card success">
+              <div className="summary-card-header">
+                <span className="summary-label">Attacks Blocked</span>
+              </div>
+              <div className="summary-number">{report.summary.blocked_attempts}</div>
+              <div className="summary-desc">Intercepted by active guardrails</div>
             </div>
 
-            <div className="kpi-block">
-              <span className="kpi-block-label">Blocked Attempts</span>
-              <span className="kpi-block-val" style={{ color: '#34d399' }}>{report.summary.blocked_attempts}</span>
-              <span className="kpi-block-sub">Enforced by guardrails</span>
+            <div className="summary-card warning">
+              <div className="summary-card-header">
+                <span className="summary-label">Recorded Fixtures</span>
+              </div>
+              <div className="summary-number">{report.findings_metrics.recorded_findings_count}</div>
+              <div className="summary-desc">Baseline cataloged fixtures</div>
             </div>
           </div>
 
-          {/* Before/After Retest Scorecard */}
-          <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title">Before vs. After Defense Scorecard</h3>
-              <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-muted)' }}>
-                Empirical Denominators
-              </span>
+          {/* Detailed Problems Found Table */}
+          <div className="card">
+            <div className="card-header">
+              <div>
+                <h3 className="card-title">Discovered Security Problems</h3>
+                <p className="card-subtitle">Detailed inventory of detected violations</p>
+              </div>
             </div>
 
-            {report.retest_comparison && report.retest_comparison.before && report.retest_comparison.after ? (
+            {(!report.findings_list || report.findings_list.length === 0) ? (
+              <div style={{ padding: '2rem', textAlign: 'center', color: 'var(--text-muted)' }}>
+                No security problems recorded in this assessment.
+              </div>
+            ) : (
               <div className="table-container">
                 <table>
                   <thead>
                     <tr>
-                      <th>Evaluated Dimension</th>
-                      <th>Baseline (Before Guardrails)</th>
-                      <th>Retest (With Active Guardrails)</th>
-                      <th>Measured Impact</th>
+                      <th>Rule ID</th>
+                      <th>Severity</th>
+                      <th>Source</th>
+                      <th>Description</th>
                     </tr>
                   </thead>
                   <tbody>
-                    <tr>
-                      <td><strong>Confirmed Exploit Rate</strong></td>
-                      <td className="mono" style={{ color: '#fb7185' }}>
-                        {report.retest_comparison.before.exploit_rate !== null
-                          ? `${(report.retest_comparison.before.exploit_rate * 100).toFixed(1)}% (${report.retest_comparison.before.exploit_rate_display})`
-                          : 'Not run'}
-                      </td>
-                      <td className="mono" style={{ color: '#34d399' }}>
-                        {report.retest_comparison.after.exploit_rate !== null
-                          ? `${(report.retest_comparison.after.exploit_rate * 100).toFixed(1)}% (${report.retest_comparison.after.exploit_rate_display})`
-                          : 'Not run'}
-                      </td>
-                      <td>
-                        {report.retest_comparison.before.exploit_rate !== null && report.retest_comparison.after.exploit_rate !== null
-                          ? `${((report.retest_comparison.before.exploit_rate - report.retest_comparison.after.exploit_rate) * 100).toFixed(1)}% exploit reduction`
-                          : 'N/A'}
-                      </td>
-                    </tr>
-                    <tr>
-                      <td><strong>Legitimate-Task Pass Rate</strong></td>
-                      <td className="mono" style={{ color: '#38bdf8' }}>
-                        {report.retest_comparison.before.legitimate_pass_rate !== null
-                          ? `${(report.retest_comparison.before.legitimate_pass_rate * 100).toFixed(1)}% (${report.retest_comparison.before.legitimate_pass_rate_display})`
-                          : 'Not run'}
-                      </td>
-                      <td className="mono" style={{ color: '#38bdf8' }}>
-                        {report.retest_comparison.after.legitimate_pass_rate !== null
-                          ? `${(report.retest_comparison.after.legitimate_pass_rate * 100).toFixed(1)}% (${report.retest_comparison.after.legitimate_pass_rate_display})`
-                          : 'Not run'}
-                      </td>
-                      <td>Preserved (100% utility)</td>
-                    </tr>
+                    {report.findings_list.map((f: Finding) => (
+                      <tr key={f.finding_id}>
+                        <td className="mono" style={{ fontWeight: 600, fontSize: '0.8rem' }}>
+                          {f.rule_fired}
+                        </td>
+                        <td>
+                          <span className={`badge ${f.severity === 'high' || f.severity === 'critical' ? 'badge-danger' : 'badge-warning'}`}>
+                            {f.severity}
+                          </span>
+                        </td>
+                        <td>
+                          <span className="badge badge-neutral">
+                            {f.source}
+                          </span>
+                        </td>
+                        <td style={{ color: 'var(--text-secondary)', fontSize: '0.84rem' }}>
+                          {f.description}
+                        </td>
+                      </tr>
+                    ))}
                   </tbody>
                 </table>
-              </div>
-            ) : (
-              <div style={{ color: 'var(--text-muted)', fontSize: '0.8rem', padding: '0.5rem 0' }}>
-                Retest comparison was not run for this assessment. Execute retest in the <strong>Retest Scorecard</strong> tab.
               </div>
             )}
           </div>
 
-          {/* Mandatory Disclosures & Boundaries Grid */}
-          <div className="panel">
-            <div className="panel-header">
-              <h3 className="panel-title">Mandatory Architectural Disclosures & Limitations</h3>
-              <span className="chip chip-seed">Honest Security Boundary</span>
-            </div>
-
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(280px, 1fr))', gap: '0.85rem', fontSize: '0.8rem' }}>
-              <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Discovery Methodology</strong>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{report.mandatory_disclosures.discovery_methodology}</p>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Leak Detection Capabilities</strong>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{report.mandatory_disclosures.leak_detection_capability}</p>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Defense Guardrail Limits</strong>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{report.mandatory_disclosures.defense_limitations}</p>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Canary String Match Scope</strong>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{report.mandatory_disclosures.canary_matching_limitation}</p>
-              </div>
-
-              <div style={{ padding: '0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <strong style={{ color: '#fff', display: 'block', marginBottom: '0.2rem' }}>Target Compatibility Scope</strong>
-                <p style={{ color: '#cbd5e1', lineHeight: '1.45' }}>{report.mandatory_disclosures.target_compatibility_scope}</p>
-              </div>
-            </div>
+          {/* Platform Limitations & Boundaries */}
+          <div className="card" style={{ backgroundColor: 'var(--bg-surface-subtle)' }}>
+            <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.5rem' }}>
+              Assessment Disclosures & Known Boundaries
+            </h3>
+            <ul style={{ paddingLeft: '1.25rem', fontSize: '0.82rem', color: 'var(--text-secondary)', lineHeight: '1.6' }}>
+              <li>
+                <strong>Verbatim Matching:</strong> Synthetic canary detection checks verbatim token occurrences and does not infer encoded or multi-lingual translations.
+              </li>
+              <li>
+                <strong>Response vs. Tool Guards:</strong> Active guardrails D1 and D2 inspect tool call parameters. Direct disclosure inside conversational replies requires D3 response filtering.
+              </li>
+              <li>
+                <strong>Configuration Scope:</strong> Testing is bound to the target configuration specification (<code className="mono">demo-company-assistant</code>).
+              </li>
+            </ul>
           </div>
         </div>
       )}

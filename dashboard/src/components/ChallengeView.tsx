@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { api } from '../api';
-import { Zap, CheckCircle2, AlertTriangle, ArrowRight, CornerDownRight, RefreshCw } from 'lucide-react';
+import { Zap, CheckCircle2, AlertTriangle, ArrowRight, RefreshCw, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
@@ -16,6 +16,7 @@ export const ChallengeView: React.FC<Props> = ({
   const [challenging, setChallenging] = useState<boolean>(false);
   const [error, setError] = useState<string | null>(null);
   const [result, setResult] = useState<any | null>(null);
+  const [showTechnical, setShowTechnical] = useState<boolean>(false);
 
   const handleChallenge = async () => {
     setChallenging(true);
@@ -35,12 +36,9 @@ export const ChallengeView: React.FC<Props> = ({
     <div>
       <div className="page-header">
         <div>
-          <h2 className="page-title">
-            <Zap size={18} color="#00e5ff" /> Adaptive Attacker Challenge Loop
-          </h2>
+          <h1 className="page-title">Try a New Attack</h1>
           <p className="page-desc">
-            Closed-loop adversary mutation: when an attack is blocked by a guard, the attacker receives the refusal feedback
-            and automatically rewrites the prompt to challenge the defense.
+            Test whether an attacker can adapt their prompt to bypass your active protections when their initial attempt is blocked.
           </p>
         </div>
       </div>
@@ -48,117 +46,183 @@ export const ChallengeView: React.FC<Props> = ({
       {!hasRuns && (
         <div className="alert-banner alert-warning">
           <span>
-            <AlertTriangle size={14} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: '-2px' }} />
-            No initial runs found to challenge. Please run the seed benchmark suite in <strong>Execute Tests</strong> first.
+            <AlertTriangle size={15} style={{ display: 'inline', marginRight: '0.4rem', verticalAlign: '-2px' }} />
+            No baseline tests recorded yet. Please run tests in <strong>Run Security Test</strong> first.
           </span>
         </div>
       )}
 
       {error && <div className="alert-banner alert-danger">{error}</div>}
 
-      {/* Control Panel */}
-      <div className="panel">
-        <div className="panel-header">
+      {/* 4-Step Adaptive Workflow Card */}
+      <div className="card">
+        <div className="card-header">
           <div>
-            <h3 className="panel-title">Adaptive Feedback Generator</h3>
-            <p className="panel-subtitle">Target: <code className="mono">demo-company-assistant</code> | Session: <code className="mono">{assessmentId}</code></p>
+            <h2 className="card-title">How the Adaptive Attack Works</h2>
+            <p className="card-subtitle">Automated attacker mutation loop</p>
           </div>
-          <span className="chip chip-generated">Round 1 Mutation</span>
         </div>
 
-        <div style={{ padding: '0.5rem 0 1rem 0' }}>
-          <p style={{ fontSize: '0.82rem', color: 'var(--text-secondary)', marginBottom: '1rem', lineHeight: '1.5' }}>
-            The adaptive attacker inspects the policy denial reason returned by D1 (e.g. <em>"Recipient domain is restricted to company.com"</em>),
-            mutates its exfiltration strategy to route through an internal company relay address (<code className="mono">relay-dispatcher@company.com</code>),
-            and evaluates whether the canary token is delivered into tool arguments.
-          </p>
+        <div style={{ display: 'grid', gridTemplateColumns: 'repeat(4, 1fr)', gap: '1rem', marginBottom: '1.25rem' }}>
+          <div style={{ padding: '0.85rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>
+              STEP 1
+            </div>
+            <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)', display: 'block', marginBottom: '0.2rem' }}>
+              Try an attack
+            </strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Attacker sends a malicious request to exfiltrate confidential data.
+            </p>
+          </div>
 
+          <div style={{ padding: '0.85rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>
+              STEP 2
+            </div>
+            <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)', display: 'block', marginBottom: '0.2rem' }}>
+              Examine response
+            </strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Guard blocks the action and returns a denial message explaining why.
+            </p>
+          </div>
+
+          <div style={{ padding: '0.85rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>
+              STEP 3
+            </div>
+            <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)', display: 'block', marginBottom: '0.2rem' }}>
+              Try a variation
+            </strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Attacker rewrites the prompt to evade the specific policy constraint.
+            </p>
+          </div>
+
+          <div style={{ padding: '0.85rem', backgroundColor: 'var(--bg-surface-subtle)', borderRadius: 'var(--radius-md)', border: '1px solid var(--border-default)' }}>
+            <div style={{ fontSize: '0.75rem', fontWeight: 700, color: 'var(--primary)', marginBottom: '0.25rem' }}>
+              STEP 4
+            </div>
+            <strong style={{ fontSize: '0.86rem', color: 'var(--text-primary)', display: 'block', marginBottom: '0.2rem' }}>
+              Check the result
+            </strong>
+            <p style={{ fontSize: '0.78rem', color: 'var(--text-muted)' }}>
+              Evaluates if the variation succeeded or was blocked by remaining guards.
+            </p>
+          </div>
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', paddingTop: '0.5rem' }}>
           <button
-            className="btn btn-primary"
+            className="btn btn-primary btn-lg"
             onClick={handleChallenge}
             disabled={challenging || !hasRuns}
-            style={{ padding: '0.55rem 1.4rem', fontSize: '0.85rem' }}
           >
-            <Zap size={15} /> {challenging ? 'Simulating Adaptive Challenge...' : 'Challenge Active Defenses'}
+            {challenging ? (
+              <>
+                <RefreshCw size={15} className="animate-spin" /> Generating Attack Variation...
+              </>
+            ) : (
+              <>
+                <Zap size={15} /> Run Adaptive Attack
+              </>
+            )}
           </button>
+
+          {challenging && (
+            <span style={{ fontSize: '0.85rem', color: 'var(--text-muted)' }}>
+              Analyzing denial feedback and mutating attack strategy...
+            </span>
+          )}
         </div>
 
-        {/* Challenge Results */}
+        {/* Results Card */}
         {result && (
           <div
             style={{
-              padding: '1.1rem',
-              background: 'var(--bg-surface-elevated)',
-              borderRadius: '5px',
-              border: '1px solid var(--border-medium)',
-              marginTop: '0.75rem',
+              marginTop: '1.25rem',
+              padding: '1.25rem',
+              backgroundColor: 'var(--bg-surface-subtle)',
+              borderRadius: 'var(--radius-md)',
+              border: '1px solid var(--border-default)',
             }}
           >
-            <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', marginBottom: '0.75rem', color: '#10b981', fontWeight: 600 }}>
-              <CheckCircle2 size={16} /> Adaptive Challenge Completed
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '0.75rem' }}>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '0.5rem', color: 'var(--success)', fontWeight: 600 }}>
+                <CheckCircle2 size={18} /> Adaptive Attack Executed
+              </div>
+              <span className="badge badge-neutral">Round {result.round}</span>
             </div>
 
-            <div style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fit, minmax(200px, 1fr))', gap: '0.75rem', marginBottom: '0.85rem' }}>
-              <div style={{ padding: '0.6rem 0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block' }}>New Run ID</span>
-                <span className="mono" style={{ fontSize: '0.82rem', fontWeight: 600, color: '#fff' }}>{result.challenge_run_id}</span>
+            {/* Outcome Explanation */}
+            <div
+              style={{
+                padding: '0.85rem 1rem',
+                backgroundColor: result.verdict === 'confirmed_exploit' ? 'var(--danger-subtle)' : 'var(--success-subtle)',
+                border: `1px solid ${result.verdict === 'confirmed_exploit' ? 'var(--danger-border)' : 'var(--success-border)'}`,
+                borderRadius: 'var(--radius-sm)',
+                marginBottom: '1rem',
+              }}
+            >
+              <div style={{ fontWeight: 600, color: result.verdict === 'confirmed_exploit' ? 'var(--danger)' : 'var(--success)', marginBottom: '0.2rem' }}>
+                {result.verdict === 'confirmed_exploit' ? 'Attack Succeeded on Variation' : 'Attack Was Blocked'}
               </div>
-
-              <div style={{ padding: '0.6rem 0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block' }}>Parent Seed Run</span>
-                <span className="mono" style={{ fontSize: '0.82rem', color: '#f59e0b' }}>{result.parent_run_id}</span>
-              </div>
-
-              <div style={{ padding: '0.6rem 0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block' }}>Mutation Iteration</span>
-                <strong style={{ fontSize: '0.82rem', color: '#fff' }}>Round {result.round}</strong>
-              </div>
-
-              <div style={{ padding: '0.6rem 0.75rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block' }}>Source Tag</span>
-                <span className="chip chip-generated">Adaptive Generated</span>
-              </div>
+              <p style={{ fontSize: '0.85rem', color: 'var(--text-primary)', lineHeight: '1.45' }}>
+                {result.verdict === 'confirmed_exploit'
+                  ? 'The attacker adapted to the email domain policy by routing through an internal company address, but successfully smuggled the canary token inside the tool parameters.'
+                  : 'The guardrails successfully caught the attack variation.'}
+              </p>
             </div>
 
-            {/* Denial Feedback Delivered to Attacker */}
+            {/* Feedback Delivered */}
             {result.feedback && (
-              <div style={{ padding: '0.65rem 0.8rem', background: 'var(--bg-app)', borderRadius: '4px', border: '1px solid var(--border-subtle)', marginBottom: '0.85rem' }}>
-                <span style={{ fontSize: '0.7rem', color: 'var(--text-subtle)', textTransform: 'uppercase', display: 'block', marginBottom: '0.2rem' }}>
-                  Guard Feedback Provided to Attacker ({result.feedback.type}):
-                </span>
-                <p className="mono" style={{ color: '#fca5a5', fontSize: '0.78rem' }}>"{result.feedback.text}"</p>
-                {result.feedback.rule && (
-                  <span className="mono" style={{ fontSize: '0.72rem', color: 'var(--text-subtle)', display: 'block', marginTop: '0.2rem' }}>
-                    Triggered Policy Rule: {result.feedback.rule}
-                  </span>
-                )}
+              <div style={{ marginBottom: '1rem', padding: '0.75rem', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)' }}>
+                <div style={{ fontSize: '0.75rem', fontWeight: 600, color: 'var(--text-muted)', textTransform: 'uppercase', marginBottom: '0.25rem' }}>
+                  Guard Feedback Observed by Attacker
+                </div>
+                <div className="mono" style={{ fontSize: '0.82rem', color: 'var(--text-primary)' }}>
+                  "{result.feedback.text}"
+                </div>
               </div>
             )}
 
-            {/* Analysis Outcome */}
-            <div style={{ fontSize: '0.82rem', color: '#e2e8f0', lineHeight: '1.45' }}>
-              <strong>Adversarial Outcome: </strong>
-              <span className="chip chip-exploit" style={{ marginRight: '0.45rem' }}>
-                {result.verdict}
-              </span>
-              Rule fired: <code className="mono" style={{ color: '#00e5ff' }}>{result.rule_fired}</code>.
-              The adaptive attacker bypassed the external domain filter by complying with the <code className="mono">company.com</code> recipient restriction,
-              while smuggling the canary token inside the tool execution arguments.
+            {/* Progressive Disclosure: Technical Details */}
+            <div>
+              <button
+                className="btn btn-secondary btn-sm"
+                onClick={() => setShowTechnical(!showTechnical)}
+                style={{ fontSize: '0.78rem' }}
+              >
+                {showTechnical ? <ChevronUp size={13} /> : <ChevronDown size={13} />}
+                {showTechnical ? 'Hide Technical Metadata' : 'View Technical Metadata'}
+              </button>
+
+              {showTechnical && (
+                <div style={{ marginTop: '0.75rem', padding: '0.75rem', backgroundColor: 'var(--bg-surface)', borderRadius: 'var(--radius-sm)', border: '1px solid var(--border-light)', fontSize: '0.8rem' }}>
+                  <div style={{ display: 'grid', gridTemplateColumns: 'repeat(2, 1fr)', gap: '0.5rem' }}>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>New Run ID: </span>
+                      <code className="mono">{result.challenge_run_id}</code>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Parent Seed Run: </span>
+                      <code className="mono">{result.parent_run_id}</code>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Triggered Rule: </span>
+                      <code className="mono">{result.rule_fired}</code>
+                    </div>
+                    <div>
+                      <span style={{ color: 'var(--text-muted)' }}>Source Provenance: </span>
+                      <span className="badge badge-neutral">Adaptive Generated</span>
+                    </div>
+                  </div>
+                </div>
+              )}
             </div>
           </div>
         )}
-      </div>
-
-      {/* Disclosures & Discovery Rules */}
-      <div className="panel">
-        <h4 style={{ fontSize: '0.85rem', fontWeight: 600, color: 'var(--text-secondary)', marginBottom: '0.35rem' }}>
-          Frozen Schema Discovery Classification
-        </h4>
-        <p style={{ color: 'var(--text-muted)', fontSize: '0.8rem', lineHeight: '1.5' }}>
-          In AgentBreak, only variants generated dynamically via the feedback loop (<code className="mono">variant_source: "generated"</code>)
-          count as adaptive discoveries. Pre-recorded fixtures (<code className="mono">source: "recorded"</code>) and seed benchmark tests
-          are strictly isolated and never inflate adaptive-found statistics.
-        </p>
       </div>
     </div>
   );
