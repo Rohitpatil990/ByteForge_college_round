@@ -38,6 +38,8 @@ yarn-error.log*
 
 # Generated assessments, traces, findings, evaluations, and reports
 data/generated/
+data/traces/
+data/trace_chain.json
 eval/results/
 reports/
 *.trace.json
