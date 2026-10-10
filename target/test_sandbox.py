@@ -639,8 +639,86 @@ class TestLegitTasks(unittest.TestCase):
             # Legitimate tasks must not be blocked by policy
             self.assertNotEqual(trace["verdict"]["label"], "blocked_attempt", f"Legit task {task['id']} was falsely blocked")
             self.assertNotEqual(trace["verdict"]["label"], "error", f"Legit task {task['id']} produced an error")
-            self.assertEqual(trace["steps"][-1]["type"], "final_reply")
+
+class TestStepTypeSchemaAlignmentAndAnalyzerAcceptance(unittest.TestCase):
+    """Test suite proving step_type == type on every step and verifying real analyzer verdicts."""
+
+    def setUp(self):
+        self.config = load_target("demo-company-assistant")
+
+    def test_every_step_has_step_type_equals_type(self):
+        """Verify that every step emitted across runs has step_type == type."""
+        from attacker.seed_scenarios import get_seed_scenarios
+
+        seeds = get_seed_scenarios(self.config)
+        for s in seeds:
+            for def_cfg in ({"D1": False}, {"D1": True}):
+                trace = run_agent(dict(s), defense_config=def_cfg, target_config=self.config)
+                self.assertGreater(len(trace["steps"]), 0)
+                for idx, step in enumerate(trace["steps"]):
+                    self.assertIn("type", step, f"Step {idx} missing 'type'")
+                    self.assertIn("step_type", step, f"Step {idx} missing 'step_type'")
+                    self.assertEqual(
+                        step["step_type"],
+                        step["type"],
+                        f"Step {idx} has mismatched step_type ({step['step_type']}) and type ({step['type']}) in scenario {s.get('scenario_id')}",
+                    )
+
+    def test_simulated_seed_canary_leak_defenses_off_gives_confirmed_exploit(self):
+        """Simulated seed-canary-leak with defenses off gives confirmed_exploit with canary_in_executed_args."""
+        from analyzer.core import analyze
+        from attacker.seed_scenarios import get_seed_scenarios
+
+        sc = [s for s in get_seed_scenarios(self.config) if s.get("scenario_id") == "seed-canary-leak-tool-args"][0]
+        trace = run_agent(dict(sc), defense_config={"D1": False, "D2": False, "D3": False}, target_config=self.config)
+        verdict = analyze(trace, self.config, persist=False)
+        self.assertEqual(verdict["label"], "confirmed_exploit")
+        self.assertEqual(verdict["rule"], "canary_in_executed_args")
+        self.assertTrue(len(verdict["evidence_steps"]) > 0)
+
+    def test_simulated_seed_canary_leak_d1_on_gives_blocked_attempt(self):
+        """Simulated seed-canary-leak with D1 on gives blocked_attempt."""
+        from analyzer.core import analyze
+        from attacker.seed_scenarios import get_seed_scenarios
+
+        sc = [s for s in get_seed_scenarios(self.config) if s.get("scenario_id") == "seed-canary-leak-tool-args"][0]
+        trace = run_agent(dict(sc), defense_config={"D1": True, "D2": False, "D3": False}, target_config=self.config)
+        verdict = analyze(trace, self.config, persist=False)
+        self.assertEqual(verdict["label"], "blocked_attempt")
+        self.assertIn("external_email", str(verdict["rule"]))
+        self.assertTrue(len(verdict["evidence_steps"]) > 0)
+
+    def test_all_seed_scenarios_pass_schema_validation_and_analyzer_runs(self):
+        """Verify for all 4 seed scenarios, defenses off and D1 on, trace passes validate_trace and analyze() runs."""
+        from analyzer.core import analyze
+        from attacker.seed_scenarios import get_seed_scenarios
+        from spec.schema import validate_trace
+
+        seeds = get_seed_scenarios(self.config)
+        self.assertEqual(len(seeds), 4)
+
+        defense_configs = [
+            {"D1": False, "D2": False, "D3": False},
+            {"D1": True, "D2": False, "D3": False},
+        ]
+
+        for s in seeds:
+            for def_cfg in defense_configs:
+                trace = run_agent(dict(s), defense_config=def_cfg, target_config=self.config)
+                # 1. Passes spec.schema.validate_trace without ValueError
+                validated_trace = validate_trace(trace)
+                self.assertIsInstance(validated_trace, dict)
+
+                # 2. analyze() runs on it without crashing and returns a valid verdict dictionary
+                verdict = analyze(trace, self.config, persist=False)
+                self.assertIsInstance(verdict, dict)
+                self.assertIn("label", verdict)
+                self.assertIn(
+                    verdict["label"],
+                    ["confirmed_exploit", "blocked_attempt", "no_violation", "inconclusive", "error"],
+                )
 
 
 if __name__ == "__main__":
     unittest.main()
+

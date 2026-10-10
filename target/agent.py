@@ -153,8 +153,8 @@ class ConfiguredTargetAgent:
                     tainted = True
                     untrusted_sources.append(doc_item)
             elif isinstance(doc_item, dict):
-                d_id = doc_item.get("id", "external_doc")
-                d_text = str(doc_item.get("text", ""))
+                d_id = doc_item.get("id") or doc_item.get("doc_id") or "external_doc"
+                d_text = str(doc_item.get("text") or doc_item.get("content") or "")
                 resolved_doc_texts.append(f"Document [{d_id}]:\n{d_text}")
                 tainted = True
                 untrusted_sources.append(d_id)
@@ -283,7 +283,7 @@ class ConfiguredTargetAgent:
                 thought_step = {
                     "idx": step_idx,
                     "step_type": "agent_thought",
-                    "type": "model_decision",
+                    "type": "agent_thought",
                     "content": f"Invoking tool '{tool_name}' with arguments: {json.dumps(args)}",
                     "text": f"Invoking tool '{tool_name}' with arguments: {json.dumps(args)}",
                     "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -295,7 +295,7 @@ class ConfiguredTargetAgent:
                 is_sensitive = sandbox.is_sensitive(tool_name)
                 attempt_step = {
                     "idx": step_idx,
-                    "step_type": "tool_call",
+                    "step_type": "tool_attempt",
                     "type": "tool_attempt",
                     "tool": tool_name,
                     "tool_name": tool_name,
@@ -324,7 +324,7 @@ class ConfiguredTargetAgent:
                 # Record guard decision step
                 guard_step = {
                     "idx": step_idx,
-                    "step_type": "agent_thought",
+                    "step_type": "guard_decision",
                     "type": "guard_decision",
                     "verdict": guard_res.get("verdict"),
                     "rule": guard_res.get("rule"),
@@ -361,7 +361,7 @@ class ConfiguredTargetAgent:
                 exec_res = sandbox.execute_tool(tool_name, args)
                 exec_step = {
                     "idx": step_idx,
-                    "step_type": "tool_result",
+                    "step_type": "tool_executed",
                     "type": "tool_executed",
                     "tool": tool_name,
                     "tool_name": tool_name,
@@ -467,7 +467,7 @@ class ConfiguredTargetAgent:
             result.steps.append({
                 "idx": step_idx,
                 "step_type": "agent_thought",
-                "type": "model_decision",
+                "type": "agent_thought",
                 "content": f"Deciding to call {tool_name} to {recipient}",
                 "text": f"Deciding to call {tool_name} to {recipient}",
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -478,7 +478,7 @@ class ConfiguredTargetAgent:
             attempt_idx = step_idx
             attempt_step = {
                 "idx": step_idx,
-                "step_type": "tool_call",
+                "step_type": "tool_attempt",
                 "type": "tool_attempt",
                 "tool": tool_name,
                 "tool_name": tool_name,
@@ -506,7 +506,7 @@ class ConfiguredTargetAgent:
             guard_idx = step_idx
             result.steps.append({
                 "idx": step_idx,
-                "step_type": "agent_thought",
+                "step_type": "guard_decision",
                 "type": "guard_decision",
                 "verdict": guard_res.get("verdict"),
                 "rule": guard_res.get("rule"),
@@ -527,7 +527,7 @@ class ConfiguredTargetAgent:
                 exec_res = sandbox.execute_tool(tool_name, args)
                 result.steps.append({
                     "idx": step_idx,
-                    "step_type": "tool_result",
+                    "step_type": "tool_executed",
                     "type": "tool_executed",
                     "tool": tool_name,
                     "tool_name": tool_name,
@@ -553,7 +553,7 @@ class ConfiguredTargetAgent:
             result.steps.append({
                 "idx": step_idx,
                 "step_type": "agent_thought",
-                "type": "model_decision",
+                "type": "agent_thought",
                 "content": f"Querying customer record for {cid}",
                 "text": f"Querying customer record for {cid}",
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
@@ -563,7 +563,7 @@ class ConfiguredTargetAgent:
             attempt_idx = step_idx
             attempt_step = {
                 "idx": step_idx,
-                "step_type": "tool_call",
+                "step_type": "tool_attempt",
                 "type": "tool_attempt",
                 "tool": tool_name,
                 "tool_name": tool_name,
@@ -590,7 +590,7 @@ class ConfiguredTargetAgent:
             guard_idx = step_idx
             result.steps.append({
                 "idx": step_idx,
-                "step_type": "agent_thought",
+                "step_type": "guard_decision",
                 "type": "guard_decision",
                 "verdict": guard_res.get("verdict"),
                 "rule": guard_res.get("rule"),
@@ -611,7 +611,7 @@ class ConfiguredTargetAgent:
                 exec_res = sandbox.execute_tool(tool_name, args)
                 result.steps.append({
                     "idx": step_idx,
-                    "step_type": "tool_result",
+                    "step_type": "tool_executed",
                     "type": "tool_executed",
                     "tool": tool_name,
                     "tool_name": tool_name,
@@ -632,7 +632,7 @@ class ConfiguredTargetAgent:
             exec_res = sandbox.execute_tool(tool_name, args)
             result.steps.append({
                 "idx": step_idx,
-                "step_type": "tool_result",
+                "step_type": "tool_executed",
                 "type": "tool_executed",
                 "tool": tool_name,
                 "tool_name": tool_name,
@@ -652,7 +652,7 @@ class ConfiguredTargetAgent:
             exec_res = sandbox.execute_tool(tool_name, args)
             result.steps.append({
                 "idx": step_idx,
-                "step_type": "tool_result",
+                "step_type": "tool_executed",
                 "type": "tool_executed",
                 "tool": tool_name,
                 "tool_name": tool_name,
