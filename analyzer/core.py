@@ -30,6 +30,7 @@ from analyzer.rules import (
     extract_canaries,
     is_step_denied,
     is_step_executed,
+    validate_target_policy_config,
     value_contains_canary,
 )
 
@@ -46,23 +47,45 @@ FINDINGS_DIR = PROJECT_ROOT / "data" / "findings"
 
 
 def map_finding_source(trace: Dict[str, Any]) -> str:
-    """Derive the finding source ('seed', 'generated', or 'recorded') from the confirming run."""
-    variant_source = str(trace.get("variant_source", "")).strip().lower()
-    kind = str(trace.get("kind", "")).strip().lower()
+    """Derive the finding source ('seed', 'generated', or 'recorded') from the confirming run.
 
-    if variant_source == "recorded" or kind == "recorded":
-        return "recorded"
-    if variant_source == "generated" or kind == "variant":
-        return "generated"
-    if variant_source == "seed" or kind == "seed":
-        return "seed"
+    Rejects unknown finding sources. Never silently converts an invalid source into 'seed'.
+    """
+    if not isinstance(trace, dict):
+        raise ValueError(f"Trace must be a dictionary, got {type(trace).__name__}")
 
-    # Fallback to source field if present
-    source = str(trace.get("source", "")).strip().lower()
-    if source in FINDING_SOURCES:
-        return source
+    raw_var = trace.get("variant_source")
+    if raw_var is not None and str(raw_var).strip():
+        variant_source = str(raw_var).strip().lower()
+        if variant_source in FINDING_SOURCES:
+            return variant_source
+        raise ValueError(
+            f"Invalid finding source {variant_source!r}. Must be one of {sorted(FINDING_SOURCES)}"
+        )
 
-    return "seed"
+    raw_src = trace.get("source")
+    if raw_src is not None and str(raw_src).strip():
+        source = str(raw_src).strip().lower()
+        if source in FINDING_SOURCES:
+            return source
+        raise ValueError(
+            f"Invalid finding source {source!r}. Must be one of {sorted(FINDING_SOURCES)}"
+        )
+
+    raw_kind = trace.get("kind")
+    if raw_kind is not None and str(raw_kind).strip():
+        kind = str(raw_kind).strip().lower()
+        if kind == "recorded":
+            return "recorded"
+        if kind in ("variant", "generated"):
+            return "generated"
+        if kind in ("seed", "attack", "benign"):
+            return "seed"
+        raise ValueError(
+            f"Invalid finding source from kind {kind!r}. Must be one of {sorted(FINDING_SOURCES)}"
+        )
+
+    raise ValueError("Trace is missing finding source provenance (variant_source, source, or kind).")
 
 
 def persist_finding(finding: Dict[str, Any], findings_dir: Optional[Path] = None) -> Optional[str]:
@@ -84,29 +107,37 @@ def persist_finding(finding: Dict[str, Any], findings_dir: Optional[Path] = None
 
 
 def validate_trace_integrity(trace: Any) -> Tuple[bool, Optional[str]]:
-    """Verify basic trace structural integrity before rule evaluation.
+    """Verify trace structural integrity before rule evaluation.
 
+    Handles malformed input such as steps: [null] gracefully without crashing.
     Returns:
         (is_valid, error_label)
     """
     if not isinstance(trace, dict):
         return False, "inconclusive"
 
+    target_id = trace.get("target_id")
+    if not target_id or not isinstance(target_id, str) or not target_id.strip():
+        return False, "inconclusive"
+
     steps = trace.get("steps")
     if steps is None or not isinstance(steps, list):
         return False, "inconclusive"
 
-    # Check for unhandled fatal runtime error step
-    for step in steps:
-        if isinstance(step, dict) and step.get("step_type") == "error":
-            # If error is a timeout or system fault rather than an evaluated step
+    for idx, step in enumerate(steps):
+        # Malformed input: non-dict step (e.g. null/None, integer, string)
+        if not isinstance(step, dict):
+            return False, "inconclusive"
+
+        step_type = step.get("step_type")
+        if not step_type or not isinstance(step_type, str):
+            return False, "inconclusive"
+
+        # Check for unhandled fatal runtime error step
+        if step_type == "error":
             content = str(step.get("content", "")).lower()
             if any(err_word in content for err_word in ("timeout", "crash", "exception", "unhandled")):
                 return False, "error"
-
-    # Missing mandatory identification
-    if not trace.get("target_id"):
-        return False, "inconclusive"
 
     return True, None
 
@@ -133,6 +164,9 @@ def analyze(
             - evidence_steps: List[int]
             - finding: Optional[Finding] (present if confirmed_exploit)
     """
+    # 0. Policy configuration validation
+    validate_target_policy_config(target_config)
+
     # 1. Structural validation
     is_valid, err_label = validate_trace_integrity(trace)
     if not is_valid:
