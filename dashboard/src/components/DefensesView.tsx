@@ -20,12 +20,14 @@ interface Props {
   assessmentId: string;
   defenses: Defense[];
   onDefensesUpdated: (defenses: Defense[]) => void;
+  onStateRefresh?: () => void;
 }
 
 export const DefensesView: React.FC<Props> = ({
   assessmentId,
   defenses,
   onDefensesUpdated,
+  onStateRefresh,
 }) => {
   const [togglingId, setTogglingId] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
@@ -73,6 +75,7 @@ export const DefensesView: React.FC<Props> = ({
       const updated = await api.toggleDefense(assessmentId, d.id);
       const newDefenses = defenses.map((item) => (item.id === updated.id ? updated : item));
       onDefensesUpdated(newDefenses);
+      onStateRefresh?.();
     } catch (err: any) {
       setError(err.message || 'Failed to update protection status');
     } finally {
@@ -93,6 +96,7 @@ export const DefensesView: React.FC<Props> = ({
       const updatedDefs = await api.getDefenses(assessmentId);
       onDefensesUpdated(updatedDefs);
       await loadDefenseState();
+      onStateRefresh?.();
     } catch (err: any) {
       setError(err.message || 'Failed to run defense evolution');
     } finally {
@@ -112,6 +116,7 @@ export const DefensesView: React.FC<Props> = ({
       const updatedDefs = await api.getDefenses(assessmentId);
       onDefensesUpdated(updatedDefs);
       await loadDefenseState();
+      onStateRefresh?.();
     } catch (err: any) {
       setError(err.message || 'Failed to run adaptive red-team loop');
     } finally {
@@ -129,6 +134,7 @@ export const DefensesView: React.FC<Props> = ({
       const updatedDefs = await api.getDefenses(assessmentId);
       onDefensesUpdated(updatedDefs);
       await loadDefenseState();
+      onStateRefresh?.();
     } catch (err: any) {
       setError(err.message || 'Failed to rollback defense');
     } finally {
@@ -341,17 +347,24 @@ export const DefensesView: React.FC<Props> = ({
         </div>
       </div>
 
-      {/* Boundary & Limitation Explanation */}
-      <div className="card" style={{ backgroundColor: 'var(--bg-surface-subtle)', marginTop: '1.25rem' }}>
-        <h3 style={{ fontSize: '0.9rem', fontWeight: 600, color: 'var(--text-primary)', marginBottom: '0.35rem' }}>
-          Important Boundary: Tool Call Guards vs. Conversational Responses
-        </h3>
-        <p style={{ fontSize: '0.84rem', color: 'var(--text-secondary)', lineHeight: '1.5' }}>
-          <strong>D1</strong> and <strong>D2</strong> inspect external tool call parameters before execution.
-          They successfully block unauthorized email recipients or untrusted memory writes.
-          However, if an attacker prompts the agent to recite confidential data directly in its conversation response (without invoking a tool),
-          tool guards cannot intercept it. A conversational response filter (D3) is needed to mitigate direct speech disclosures.
-        </p>
+      {/* Guardrail Scope Note */}
+      <div
+        className="card"
+        style={{
+          backgroundColor: 'var(--bg-surface-subtle)',
+          marginTop: '1rem',
+          padding: '0.85rem 1.15rem',
+          display: 'flex',
+          alignItems: 'center',
+          gap: '0.75rem',
+        }}
+      >
+        <Shield size={18} color="var(--primary)" style={{ flexShrink: 0 }} />
+        <div style={{ fontSize: '0.83rem', color: 'var(--text-secondary)', lineHeight: '1.4' }}>
+          <strong style={{ color: 'var(--text-primary)' }}>Defense Coverage: </strong>
+          Tool guards (<strong>D1</strong>, <strong>D2</strong>) block unauthorized tool arguments and untrusted memory writes.
+          The conversational filter (<strong>D3</strong>) stops private secrets from leaking in final replies.
+        </div>
       </div>
 
       {/* Candidate Evaluation & Gatekeeper Scorecards */}

@@ -14,7 +14,7 @@ import logging
 from typing import Any, Callable, Dict, List, Optional
 
 from analyzer.core import analyze
-from attacker.strategy_engine import AttackStrategy, get_dynamic_engine
+from attacker.strategy_engine import AttackStrategy, get_dynamic_engine, is_strategy_viable
 from defense.generator import generate_candidate_policy, validate_candidate_supported
 from defense.models import DefenseCandidate, EvaluationScorecard, PolicyVersion
 from defense.registry import PolicyRegistry, get_policy_registry
@@ -292,6 +292,7 @@ class DefenseEvolutionOrchestrator:
             round_record = {
                 "round": round_num,
                 "run_id": run_id,
+                "parent_run_id": current_parent_run_id,
                 "strategy": strat,
                 "attacker_generation_mode": scenario.get("generation_mode", "offline_adaptive_template"),
                 "is_attacker_model_generated": scenario.get("is_model_generated", False),
@@ -302,14 +303,22 @@ class DefenseEvolutionOrchestrator:
                 "feedback": extracted_feedback,
                 "candidate": candidate_info,
                 "active_policy_version": curr_active_ver.version_id if curr_active_ver else "v1.0.0",
+                "trace": trace,
             }
             rounds_executed.append(round_record)
 
-            # Check termination: if defense was promoted and current attack is mitigated
+            # Check termination:
+            # 1. If an evolved defense was promoted and current attack is mitigated
             if len(promoted_versions) > 0 and verdict_label in ("blocked_attempt", "no_violation"):
                 termination_reason = "attack_mitigated_by_evolved_defense"
                 break
-            elif round_num >= 3 and verdict_label in ("blocked_attempt", "no_violation"):
+
+            # 2. Check if all viable strategies have been exhausted
+            available_tools = [t.get("name") for t in target_config.get("tools", []) if isinstance(t, dict)]
+            all_viable_strats = {s.value for s in AttackStrategy if is_strategy_viable(s, available_tools)}
+            unattempted_viable = all_viable_strats - set(attempted_strategies)
+
+            if not unattempted_viable and verdict_label in ("blocked_attempt", "no_violation"):
                 termination_reason = "attack_mitigated"
                 break
 

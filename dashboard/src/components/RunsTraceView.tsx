@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Run, TraceStep } from '../types';
-import { User, Cpu, Wrench, CheckCircle, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, Terminal } from 'lucide-react';
+import { User, Cpu, Wrench, CheckCircle, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, Terminal, ChevronDown, ChevronUp } from 'lucide-react';
 
 interface Props {
   runs: Run[];
@@ -10,6 +10,7 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
   const [selectedRunId, setSelectedRunId] = useState<string | null>(
     runs.length > 0 ? runs[0].run_id : null
   );
+  const [expandedArgs, setExpandedArgs] = useState<Record<number, boolean>>({});
 
   const activeRun = runs.find((r) => r.run_id === selectedRunId) || runs[0];
 
@@ -288,23 +289,40 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
 
                         {step.tool_args && (
                           <div style={{ marginTop: '0.45rem' }}>
-                            <div style={{ fontSize: '0.72rem', color: 'var(--text-muted)', marginBottom: '0.2rem' }}>
-                              Arguments:
-                            </div>
-                            <pre
-                              className="mono"
+                            <button
+                              type="button"
+                              className="btn btn-secondary btn-sm"
+                              onClick={() =>
+                                setExpandedArgs((prev) => ({ ...prev, [idx]: !prev[idx] }))
+                              }
                               style={{
-                                backgroundColor: 'var(--bg-surface-subtle)',
-                                padding: '0.5rem 0.75rem',
-                                borderRadius: 'var(--radius-sm)',
-                                border: '1px solid var(--border-light)',
-                                fontSize: '0.8rem',
-                                color: 'var(--text-primary)',
-                                overflowX: 'auto',
+                                fontSize: '0.72rem',
+                                padding: '0.15rem 0.45rem',
+                                display: 'inline-flex',
+                                alignItems: 'center',
+                                gap: '0.3rem',
                               }}
                             >
-                              {JSON.stringify(step.tool_args, null, 2)}
-                            </pre>
+                              {expandedArgs[idx] ? <ChevronUp size={11} /> : <ChevronDown size={11} />}
+                              {expandedArgs[idx] ? 'Hide Tool Arguments' : 'Inspect Tool Arguments'}
+                            </button>
+                            {expandedArgs[idx] && (
+                              <pre
+                                className="mono"
+                                style={{
+                                  marginTop: '0.35rem',
+                                  backgroundColor: 'var(--bg-surface-subtle)',
+                                  padding: '0.5rem 0.75rem',
+                                  borderRadius: 'var(--radius-sm)',
+                                  border: '1px solid var(--border-light)',
+                                  fontSize: '0.78rem',
+                                  color: 'var(--text-primary)',
+                                  overflowX: 'auto',
+                                }}
+                              >
+                                {JSON.stringify(step.tool_args, null, 2)}
+                              </pre>
+                            )}
                           </div>
                         )}
                       </div>

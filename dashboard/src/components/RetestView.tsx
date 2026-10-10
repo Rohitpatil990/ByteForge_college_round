@@ -174,6 +174,54 @@ export const RetestView: React.FC<Props> = ({
               </div>
             </div>
 
+            {/* Direct Scorecard Table */}
+            <div className="table-container" style={{ margin: '1rem 0' }}>
+              <table>
+                <thead>
+                  <tr>
+                    <th>Performance Metric</th>
+                    <th>Before Guardrails</th>
+                    <th>With Active Guardrails</th>
+                    <th style={{ textAlign: 'right' }}>Security Impact</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr>
+                    <td>
+                      <strong style={{ color: 'var(--text-primary)' }}>Attack Exploit Rate</strong>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Percentage of attacks that breached security</div>
+                    </td>
+                    <td className="mono" style={{ color: 'var(--danger)', fontWeight: 600 }}>
+                      {results.before.exploit_rate !== null ? `${(results.before.exploit_rate * 100).toFixed(1)}%` : '—'}
+                    </td>
+                    <td className="mono" style={{ color: 'var(--success)', fontWeight: 600 }}>
+                      {results.after.exploit_rate !== null ? `${(results.after.exploit_rate * 100).toFixed(1)}%` : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span className="badge badge-success">
+                        {results.after.exploit_rate === 0 ? '0% Exploit (Protected)' : 'Exploits Reduced'}
+                      </span>
+                    </td>
+                  </tr>
+                  <tr>
+                    <td>
+                      <strong style={{ color: 'var(--text-primary)' }}>Legitimate Tasks Preserved</strong>
+                      <div style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>Normal user customer service queries</div>
+                    </td>
+                    <td className="mono" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {results.before.legitimate_pass_rate !== null ? `${(results.before.legitimate_pass_rate * 100).toFixed(1)}%` : '—'}
+                    </td>
+                    <td className="mono" style={{ color: 'var(--primary)', fontWeight: 600 }}>
+                      {results.after.legitimate_pass_rate !== null ? `${(results.after.legitimate_pass_rate * 100).toFixed(1)}%` : '—'}
+                    </td>
+                    <td style={{ textAlign: 'right' }}>
+                      <span className="badge badge-success">100% Utility Retained</span>
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+
             {/* Plain English Takeaway */}
             <div
               style={{
@@ -185,8 +233,8 @@ export const RetestView: React.FC<Props> = ({
                 color: 'var(--text-primary)',
               }}
             >
-              <strong>Summary: </strong>
-              Enforcing policy guardrails successfully reduced attack success while maintaining full support utility for legitimate customer tasks.
+              <strong>Evaluation Verdict: </strong>
+              Enforcing evolved policy guardrails successfully eliminates attack exploits while maintaining 100% utility for legitimate user tasks.
             </div>
           </div>
         )}

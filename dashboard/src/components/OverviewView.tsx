@@ -121,6 +121,49 @@ export const OverviewView: React.FC<Props> = ({
         </button>
       </div>
 
+      {/* Executive Status Banner */}
+      {hasRuns && (
+        <div
+          style={{
+            padding: '0.85rem 1.15rem',
+            borderRadius: 'var(--radius-md)',
+            backgroundColor: attacksSucceeded > 0 ? 'var(--danger-subtle)' : 'var(--success-subtle)',
+            border: `1px solid ${attacksSucceeded > 0 ? 'var(--danger-border)' : 'var(--success-border)'}`,
+            marginBottom: '1.25rem',
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            flexWrap: 'wrap',
+            gap: '0.75rem',
+          }}
+        >
+          <div style={{ display: 'flex', alignItems: 'center', gap: '0.65rem' }}>
+            {attacksSucceeded > 0 ? (
+              <ShieldAlert size={20} color="var(--danger)" />
+            ) : (
+              <ShieldCheck size={20} color="var(--success)" />
+            )}
+            <div>
+              <strong style={{ fontSize: '0.9rem', color: attacksSucceeded > 0 ? 'var(--danger)' : 'var(--success)' }}>
+                {attacksSucceeded > 0
+                  ? `Security Issues Detected: ${attacksSucceeded} attack(s) succeeded against baseline defenses`
+                  : `Agent Fully Protected: 0 attacks succeeded across ${totalTests} tests`}
+              </strong>
+              <div style={{ fontSize: '0.8rem', color: 'var(--text-secondary)', marginTop: '0.15rem' }}>
+                {attacksSucceeded > 0
+                  ? 'Go to Protection to evolve defenses and evaluate isolated candidate policies.'
+                  : `${attacksBlocked} attack attempts blocked by guardrails. Legitimate user tasks passing.`}
+              </div>
+            </div>
+          </div>
+          {attacksSucceeded > 0 && (
+            <button className="btn btn-secondary btn-sm" onClick={() => onNavigate('defenses')}>
+              Evolve Defenses <ArrowRight size={13} />
+            </button>
+          )}
+        </div>
+      )}
+
       {/* -------------------------------------------------------------------
           2. Four Simple Summary Cards
       ------------------------------------------------------------------- */}

@@ -43,9 +43,12 @@ def run_agent(
         user_msg = raw_input.get("user_msg")
         if not user_msg or not isinstance(user_msg, str) or not user_msg.strip():
             raise ValueError("Scenario 'input' must contain a non-empty string 'user_msg'")
+        docs_list = list(raw_input.get("docs") or [])
+        if not docs_list and scenario.get("synthetic_docs"):
+            docs_list = [d.get("doc_id") for d in scenario.get("synthetic_docs") if isinstance(d, dict) and d.get("doc_id")]
         scenario_input = {
             "user_msg": user_msg.strip(),
-            "docs": list(raw_input.get("docs") or []),
+            "docs": docs_list,
             "memory": list(raw_input.get("memory") or []),
         }
     elif "initial_input" in scenario and scenario["initial_input"] is not None:
@@ -123,6 +126,8 @@ def run_agent(
     )
     simulate_error = scenario.get("simulate_error") or scenario.get("config", {}).get("simulate_error")
 
+    synthetic_docs = scenario.get("synthetic_docs")
+
     exec_result = agent.execute(
         user_msg=user_msg,
         docs=docs,
@@ -135,6 +140,7 @@ def run_agent(
         simulate_error=simulate_error,
         model_client=target_model_client,
         target_execution_mode=target_execution_mode,
+        synthetic_docs=synthetic_docs,
     )
 
     # 4.5. Dynamic defense post-execution filter (e.g. D3 reply canary filter)

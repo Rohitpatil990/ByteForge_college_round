@@ -501,6 +501,7 @@ export const App: React.FC = () => {
                   assessmentId={currentAssessment?.id || 'default'}
                   defenses={defenses}
                   onDefensesUpdated={(updated) => setDefenses(updated)}
+                  onStateRefresh={handleRefreshState}
                 />
               )}
 

@@ -286,6 +286,7 @@ def execute_real_benchmark_runs(asmt_id: str, store: "AssessmentStore" = None) -
             "kind": "attack",
             "variant_source": "seed",
             "round": 0,
+            "synthetic_docs": sc.get("synthetic_docs"),
             "input": {
                 "user_msg": sc.get("initial_input", ""),
                 "docs": [d.get("doc_id") for d in sc.get("synthetic_docs", [])] if sc.get("synthetic_docs") else [],
@@ -1553,6 +1554,79 @@ def execute_adaptive_red_team_loop(
                 d["status"] = "enforced"
                 d["is_stub"] = False
                 d["description"] = "Active Defense D3: Output filter actively scanning and sanitizing confidential canary tokens ([REDACTED_SECRET])."
+
+    # Synchronize executed adaptive rounds into assessment runs and findings
+    now_iso = datetime.now(timezone.utc).isoformat()
+    existing_run_ids = {r.get("run_id") for r in asmt.get("runs", [])}
+
+    for rd in loop_result.get("rounds_executed", []):
+        r_id = rd.get("run_id") or f"run-{asmt_id[:8]}-adapt-{rd['round']:02d}"
+        if r_id in existing_run_ids:
+            continue
+        existing_run_ids.add(r_id)
+
+        raw_verdict = rd.get("verdict", "no_violation")
+        run_verdict = "blocked" if raw_verdict == "blocked_attempt" else raw_verdict
+
+        finding_obj: Optional[Finding] = None
+        if raw_verdict == "confirmed_exploit":
+            rule_fired = rd.get("rule")
+            if rule_fired not in EXACT_ANALYZER_RULE_IDS:
+                rule_fired = "executed_outside_policy"
+            f_id = f"find-{r_id}"
+            finding_obj = {
+                "finding_id": f_id,
+                "target_id": target_id,
+                "source": "generated",
+                "rule_fired": rule_fired,
+                "description": f"Adaptive red-team attack (Strategy: {rd['strategy']}) confirmed exploit in round {rd['round']}.",
+                "severity": "critical" if "canary" in rule_fired else "high",
+                "trace_id": r_id,
+                "details": {
+                    "strategy": rd.get("strategy"),
+                    "round": rd.get("round"),
+                    "execution_mode": rd.get("target_execution_mode", "real_sandbox"),
+                    "evidence_steps": [0],
+                    "feedback": rd.get("feedback"),
+                },
+            }
+
+        trace_dict = rd.get("trace")
+        if not trace_dict or not isinstance(trace_dict, dict):
+            trace_dict = {
+                "target_id": target_id,
+                "kind": "attack",
+                "variant_source": "generated",
+                "parent_run_id": rd.get("parent_run_id"),
+                "round": rd["round"],
+                "steps": [],
+            }
+
+        run_record: Dict[str, Any] = {
+            "run_id": r_id,
+            "assessment_id": asmt_id,
+            "target_id": target_id,
+            "name": f"Adaptive Round {rd['round']}: {str(rd.get('strategy', 'Attack')).replace('_', ' ').title()}",
+            "kind": "attack",
+            "variant_source": "generated",
+            "parent_run_id": rd.get("parent_run_id"),
+            "round": rd["round"],
+            "verdict": run_verdict,
+            "execution_mode": "real_sandbox" if rd.get("target_execution_mode") != "deterministic_simulation" else "deterministic_simulation",
+            "timestamp": now_iso,
+            "feedback": rd.get("feedback"),
+            "metadata": {
+                "strategy": rd.get("strategy"),
+                "round": rd.get("round"),
+                "generation_mode": rd.get("attacker_generation_mode"),
+                "is_model_generated": rd.get("is_attacker_model_generated"),
+                "rule": rd.get("rule"),
+                "candidate": rd.get("candidate"),
+                "active_policy_version": rd.get("active_policy_version"),
+            },
+            "trace": trace_dict,
+        }
+        store.append_run_and_chain(asmt_id, run_record, finding_obj)
 
     store.append_chain_block(
         asmt_id,
