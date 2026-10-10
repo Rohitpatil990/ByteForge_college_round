@@ -21,6 +21,11 @@ from attacker.seed_scenarios import (
     get_seed_scenario_by_id,
     get_seed_scenarios,
 )
+from attacker.strategy_engine import (
+    AttackStrategy,
+    DynamicAttackEngine,
+    get_dynamic_engine,
+)
 
 __all__ = [
     "next_variant",
@@ -28,6 +33,9 @@ __all__ = [
     "get_seed_scenario_by_id",
     "build_attacker_prompt",
     "AttackScenario",
+    "AttackStrategy",
+    "DynamicAttackEngine",
+    "get_dynamic_engine",
     "AttackerError",
     "AttackerAuthenticationError",
     "AttackerRateLimitError",

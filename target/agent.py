@@ -17,7 +17,7 @@ import logging
 import os
 import re
 from pathlib import Path
-from typing import Any, Dict, List, Optional, Tuple
+from typing import Any, Callable, Dict, List, Optional, Tuple
 
 import httpx
 
@@ -62,12 +62,20 @@ class AgentExecutionResult:
         self.attempted_violation: bool = False
         self.executed_violation: bool = False
         self.evidence_steps: List[int] = []
+        self.target_execution_mode: str = "deterministic_offline"
+        self.is_model_invoked: bool = False
 
 
 class ConfiguredTargetAgent:
     """Agent runtime instantiated strictly from a TargetConfig."""
 
-    def __init__(self, target_config: Dict[str, Any], model_name: str = "gemini-2.5-flash", temperature: float = 0.2):
+    def __init__(
+        self,
+        target_config: Dict[str, Any],
+        model_name: str = "gemini-2.5-flash",
+        temperature: float = 0.2,
+        model_client: Optional[Callable] = None,
+    ):
         self.target_config = target_config
         self.system_prompt = target_config.get("system_prompt", "")
         self.tools_def = target_config.get("tools", [])
@@ -76,6 +84,7 @@ class ConfiguredTargetAgent:
         self.model_name = model_name
         self.temperature = temperature
         self.api_key = _get_api_key()
+        self.model_client = model_client
 
     def _format_gemini_tools(self) -> List[Dict[str, Any]]:
         """Convert target config tool definitions to Gemini function declaration schema."""
@@ -115,6 +124,8 @@ class ConfiguredTargetAgent:
         role: str = "support",
         simulated: bool = False,
         simulate_error: Optional[str] = None,
+        model_client: Optional[Callable] = None,
+        target_execution_mode: Optional[str] = None,
     ) -> AgentExecutionResult:
         """Run agent interaction loop with guard interception and step recording."""
         result = AgentExecutionResult()
@@ -181,8 +192,17 @@ class ConfiguredTargetAgent:
             combined_context += "Retrieved Documents:\n" + "\n---\n".join(resolved_doc_texts) + "\n\n"
         combined_context += f"User Request: {user_msg}"
 
-        # If not explicitly simulated and API key is present, try online execution
-        if not is_simulated and self.api_key:
+        active_model_client = model_client or self.model_client
+        wants_model_backed = False
+        if active_model_client is not None:
+            wants_model_backed = True
+        elif target_execution_mode == "model_backed" and (active_model_client is not None or (not is_simulated and bool(self.api_key))):
+            wants_model_backed = True
+        elif not is_simulated and bool(self.api_key) and target_execution_mode != "deterministic_offline":
+            wants_model_backed = True
+
+        # Execute model-backed loop if configured
+        if wants_model_backed:
             try:
                 online_res = self._execute_gemini_online(
                     combined_context=combined_context,
@@ -194,14 +214,15 @@ class ConfiguredTargetAgent:
                     role=role,
                     tainted=tainted,
                     untrusted_sources=untrusted_sources,
+                    model_client=active_model_client,
                 )
                 if online_res is not None:
                     return online_res
             except Exception as exc:
-                logger.warning(f"Online Gemini execution error: {exc}. Falling back to simulation.")
+                logger.warning(f"Model-backed target execution error: {exc}. Falling back to deterministic mode.")
 
         # Fallback deterministic execution
-        return self._execute_deterministic(
+        det_res = self._execute_deterministic(
             user_msg=user_msg,
             resolved_doc_texts=resolved_doc_texts,
             sandbox=sandbox,
@@ -213,6 +234,9 @@ class ConfiguredTargetAgent:
             untrusted_sources=untrusted_sources,
             docs=docs,
         )
+        det_res.target_execution_mode = "deterministic_offline"
+        det_res.is_model_invoked = False
+        return det_res
 
     def _execute_gemini_online(
         self,
@@ -225,8 +249,9 @@ class ConfiguredTargetAgent:
         role: str,
         tainted: bool,
         untrusted_sources: List[str],
+        model_client: Optional[Callable] = None,
     ) -> Optional[AgentExecutionResult]:
-        """Execute agent multi-turn interaction with Gemini API."""
+        """Execute agent multi-turn interaction with Gemini API or configured model client."""
         result = AgentExecutionResult()
         step_idx = 0
         denied_sensitive_count = 0
@@ -249,15 +274,38 @@ class ConfiguredTargetAgent:
                 },
             }
 
-            resp = httpx.post(url, json=payload, timeout=20.0)
-            if resp.status_code != 200:
-                logger.error(f"Gemini API returned status {resp.status_code}: {resp.text}")
-                result.is_error = True
-                result.error_message = f"Gemini API error {resp.status_code}: {resp.text[:200]}"
-                result.verdict_label = "error"
-                return result
+            if model_client is not None:
+                try:
+                    resp_val = model_client(payload)
+                except TypeError:
+                    resp_val = model_client(messages, tools_spec)
 
-            data = resp.json()
+                if isinstance(resp_val, str):
+                    data = {"candidates": [{"content": {"parts": [{"text": resp_val}]}}]}
+                elif isinstance(resp_val, dict):
+                    if "candidates" in resp_val:
+                        data = resp_val
+                    elif "functionCall" in resp_val or "function_call" in resp_val:
+                        fc = resp_val.get("functionCall") or resp_val.get("function_call")
+                        data = {"candidates": [{"content": {"parts": [{"functionCall": fc}]}}]}
+                    elif "text" in resp_val:
+                        data = {"candidates": [{"content": {"parts": [{"text": resp_val["text"]}]}}]}
+                    else:
+                        data = resp_val
+                else:
+                    result.is_error = True
+                    result.error_message = f"Invalid model_client return type: {type(resp_val)}"
+                    result.verdict_label = "error"
+                    return result
+            else:
+                resp = httpx.post(url, json=payload, timeout=20.0)
+                if resp.status_code != 200:
+                    logger.error(f"Gemini API returned status {resp.status_code}: {resp.text}")
+                    result.is_error = True
+                    result.error_message = f"Gemini API error {resp.status_code}: {resp.text[:200]}"
+                    result.verdict_label = "error"
+                    return result
+                data = resp.json()
             candidates = data.get("candidates", [])
             if not candidates:
                 result.is_error = True
@@ -279,7 +327,24 @@ class ConfiguredTargetAgent:
 
             if function_call:
                 tool_name = function_call.get("name")
-                args = function_call.get("args", {})
+                args = function_call.get("args") or {}
+                if not isinstance(args, dict):
+                    args = {}
+
+                # Strict validation: verify tool name is in configured tools list
+                valid_tools = [t.get("name") for t in self.tools_def if isinstance(t, dict)]
+                if tool_name not in valid_tools:
+                    messages.append({"role": "model", "parts": [{"functionCall": function_call}]})
+                    messages.append({
+                        "role": "function",
+                        "parts": [{
+                            "functionResponse": {
+                                "name": str(tool_name),
+                                "response": {"error": f"Tool '{tool_name}' is not recognized or configured for this target."},
+                            }
+                        }],
+                    })
+                    continue
 
                 # Step 1: Model decision
                 thought_step = {
@@ -390,6 +455,8 @@ class ConfiguredTargetAgent:
                 # Model produced final text reply
                 final_text = text_response or "Task completed."
                 result.final_reply = final_text
+                result.target_execution_mode = "model_backed"
+                result.is_model_invoked = True
                 reply_step = {
                     "idx": step_idx,
                     "step_type": "final_reply",
@@ -405,6 +472,8 @@ class ConfiguredTargetAgent:
         if result.final_reply is None:
             synth_text = "I have processed the request according to the security policies."
             result.final_reply = synth_text
+            result.target_execution_mode = "model_backed"
+            result.is_model_invoked = True
             result.steps.append({
                 "idx": step_idx,
                 "step_type": "final_reply",
@@ -414,6 +483,8 @@ class ConfiguredTargetAgent:
                 "timestamp": datetime.datetime.now(datetime.timezone.utc).isoformat(),
             })
 
+        result.target_execution_mode = "model_backed"
+        result.is_model_invoked = True
         return result
 
     def _execute_deterministic(

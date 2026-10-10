@@ -34,6 +34,8 @@ export interface Run {
   round: number;
   verdict: 'confirmed_exploit' | 'blocked' | 'legitimate_pass' | 'inconclusive' | 'error';
   timestamp: string;
+  execution_mode?: 'deterministic_simulation' | 'real_sandbox';
+  metadata?: Record<string, any>;
   trace: Trace;
   feedback?: {
     type: 'bot_reply' | 'deny_reason';
@@ -146,4 +148,69 @@ export interface AssessmentSummary {
   updated_at: string;
   runs_count: number;
   findings_count: number;
+}
+
+export interface PolicyDiff {
+  added: Record<string, any>;
+  modified: Record<string, any>;
+  removed: Record<string, any>;
+  summary: string;
+}
+
+export interface EvaluationScorecard {
+  candidate_id: string;
+  target_id: string;
+  gatekeeper_verdict: 'ACCEPTED' | 'REJECTED';
+  exploit_mitigated: boolean;
+  adaptive_exploit_mitigated: boolean;
+  baseline_exploits_tested: number;
+  baseline_exploits_blocked: number;
+  legit_tasks_total: number;
+  legit_tasks_passed: number;
+  legit_task_pass_rate: number;
+  rejection_reasons: string[];
+  latency_ms: number;
+  details?: Record<string, any>;
+}
+
+export interface DefenseCandidate {
+  candidate_id: string;
+  target_id: string;
+  base_version_id: string;
+  proposed_policy: Record<string, any>;
+  diff: PolicyDiff;
+  trigger_finding?: Finding;
+  status: 'pending' | 'evaluating' | 'accepted' | 'rejected';
+  scorecard?: EvaluationScorecard;
+  rejection_reason?: string;
+  created_at: string;
+}
+
+export interface PolicyVersion {
+  version_id: string;
+  target_id: string;
+  status: 'active' | 'candidate' | 'rejected' | 'archived' | 'rolled_back';
+  parent_version_id?: string;
+  policy: Record<string, any>;
+  rationale: string;
+  mutation_type: string;
+  created_at: string;
+}
+
+export interface EvolutionResult {
+  target_id: string;
+  initial_version_id: string;
+  final_version_id: string;
+  candidates_total: number;
+  candidates_accepted: number;
+  candidates_rejected: number;
+  candidates: Array<{
+    candidate_id: string;
+    status: string;
+    promoted: boolean;
+    diff: PolicyDiff;
+    scorecard: EvaluationScorecard;
+    rejection_reason?: string;
+  }>;
+  history: PolicyVersion[];
 }

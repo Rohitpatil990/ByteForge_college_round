@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { Run, TraceStep } from '../types';
-import { User, Cpu, Wrench, CheckCircle, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert } from 'lucide-react';
+import { User, Cpu, Wrench, CheckCircle, MessageSquare, AlertTriangle, ShieldCheck, ShieldAlert, Terminal } from 'lucide-react';
 
 interface Props {
   runs: Run[];
@@ -37,6 +37,37 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
       default:
         return <span className="badge badge-neutral">Standard Test</span>;
     }
+  };
+
+  const getExecutionModeBadge = (mode?: string) => {
+    if (mode === 'real_sandbox') {
+      return (
+        <span
+          className="badge badge-success"
+          style={{
+            display: 'inline-flex',
+            alignItems: 'center',
+            gap: '0.35rem',
+            fontWeight: 600,
+          }}
+        >
+          <Cpu size={12} /> Real Sandbox
+        </span>
+      );
+    }
+    return (
+      <span
+        className="badge badge-neutral"
+        style={{
+          display: 'inline-flex',
+          alignItems: 'center',
+          gap: '0.35rem',
+          fontWeight: 600,
+        }}
+      >
+        <Terminal size={12} /> Deterministic Sim
+      </span>
+    );
   };
 
   const getStepIcon = (type: string) => {
@@ -131,9 +162,23 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
 
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
                       {getResultBadge(r.verdict)}
-                      <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
-                        {r.trace?.steps?.length || 0} steps
-                      </span>
+                      <div style={{ display: 'flex', gap: '0.4rem', alignItems: 'center' }}>
+                        <span
+                          className="badge"
+                          style={{
+                            fontSize: '0.65rem',
+                            padding: '1px 5px',
+                            backgroundColor: r.execution_mode === 'real_sandbox' ? 'var(--success-subtle)' : 'var(--neutral-subtle)',
+                            color: r.execution_mode === 'real_sandbox' ? 'var(--success)' : 'var(--text-muted)',
+                            border: `1px solid ${r.execution_mode === 'real_sandbox' ? 'var(--success-border)' : 'var(--neutral-border)'}`,
+                          }}
+                        >
+                          {r.execution_mode === 'real_sandbox' ? 'Sandbox' : 'Sim'}
+                        </span>
+                        <span style={{ fontSize: '0.74rem', color: 'var(--text-muted)' }}>
+                          {r.trace?.steps?.length || 0} steps
+                        </span>
+                      </div>
                     </div>
                   </div>
                 );
@@ -157,15 +202,27 @@ export const RunsTraceView: React.FC<Props> = ({ runs }) => {
                       <span>Target: <strong style={{ color: 'var(--text-primary)' }}>{activeRun.target_id}</strong></span>
                       <span>•</span>
                       <span>Type: <span style={{ textTransform: 'capitalize' }}>{activeRun.kind}</span></span>
-                      {activeRun.round > 0 && (
+                      <span>•</span>
+                      <span>Round: <strong>{activeRun.round}</strong></span>
+                      {activeRun.parent_run_id && (
                         <>
                           <span>•</span>
-                          <span>Round: <strong>{activeRun.round}</strong></span>
+                          <span>Parent: <span className="mono">{activeRun.parent_run_id}</span></span>
                         </>
                       )}
+                      <span>•</span>
+                      <span>
+                        Mode:{' '}
+                        <strong style={{ color: activeRun.execution_mode === 'real_sandbox' ? 'var(--success)' : 'var(--warning)' }}>
+                          {activeRun.execution_mode === 'real_sandbox' ? 'Real Sandbox' : 'Deterministic Simulation'}
+                        </strong>
+                      </span>
                     </div>
                   </div>
-                  <div>{getResultBadge(activeRun.verdict)}</div>
+                  <div style={{ display: 'flex', gap: '0.5rem', alignItems: 'center' }}>
+                    {getExecutionModeBadge(activeRun.execution_mode)}
+                    {getResultBadge(activeRun.verdict)}
+                  </div>
                 </div>
 
                 <div

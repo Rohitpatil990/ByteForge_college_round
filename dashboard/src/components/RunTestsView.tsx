@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { Run } from '../types';
 import { api } from '../api';
-import { Play, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Target, RefreshCw } from 'lucide-react';
+import { Play, CheckCircle2, AlertTriangle, ArrowRight, ShieldCheck, Target, RefreshCw, Cpu, Terminal } from 'lucide-react';
 
 interface Props {
   assessmentId: string;
@@ -20,6 +20,7 @@ export const RunTestsView: React.FC<Props> = ({
   const [error, setError] = useState<string | null>(null);
   const [latestRuns, setLatestRuns] = useState<Run[]>([]);
   const [completed, setCompleted] = useState<boolean>(false);
+  const [executionMode, setExecutionMode] = useState<'real_sandbox' | 'deterministic_simulation'>('real_sandbox');
 
   const handleExecute = async () => {
     if (!targetId) {
@@ -31,7 +32,7 @@ export const RunTestsView: React.FC<Props> = ({
     setCompleted(false);
 
     try {
-      const res = await api.startRuns(assessmentId);
+      const res = await api.startRuns(assessmentId, executionMode);
       setLatestRuns(res.runs);
       setCompleted(true);
       onRunsCompleted(res.runs);
@@ -88,6 +89,35 @@ export const RunTestsView: React.FC<Props> = ({
             This suite tests 3 adversarial attack scenarios and 1 normal customer-service task.
             The test records each action, verifies tool policies, and logs whether the attack was stopped or succeeded.
           </p>
+
+          <div style={{ marginBottom: '1.25rem' }}>
+            <label style={{ fontSize: '0.74rem', fontWeight: 600, textTransform: 'uppercase', color: 'var(--text-subtle)', display: 'block', marginBottom: '0.45rem' }}>
+              Execution Environment
+            </label>
+            <div style={{ display: 'flex', gap: '0.65rem', flexWrap: 'wrap' }}>
+              <button
+                type="button"
+                className={`btn btn-sm ${executionMode === 'real_sandbox' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setExecutionMode('real_sandbox')}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem' }}
+              >
+                <Cpu size={13} /> Real Sandbox (Live Tools & Tracer)
+              </button>
+              <button
+                type="button"
+                className={`btn btn-sm ${executionMode === 'deterministic_simulation' ? 'btn-primary' : 'btn-secondary'}`}
+                onClick={() => setExecutionMode('deterministic_simulation')}
+                style={{ display: 'flex', alignItems: 'center', gap: '0.4rem', fontSize: '0.78rem' }}
+              >
+                <Terminal size={13} /> Deterministic Simulation (Mock Traces)
+              </button>
+            </div>
+            <p style={{ fontSize: '0.75rem', color: 'var(--text-muted)', marginTop: '0.4rem' }}>
+              {executionMode === 'real_sandbox'
+                ? 'Executes requests inside target.runner with isolated tools (mock mailer, mock DB) and live policy guards.'
+                : 'Emits deterministic pre-recorded trace sequence without initializing the target agent loop.'}
+            </p>
+          </div>
 
           <div style={{ display: 'flex', alignItems: 'center', gap: '1rem', flexWrap: 'wrap' }}>
             <button

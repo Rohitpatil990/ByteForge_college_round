@@ -37,10 +37,16 @@ from pydantic import BaseModel, Field
 from api.store import (
     RECORDED_DATA_PATH,
     STORE,
+    apply_defense_candidate_for_assessment,
     build_assessment_report,
     execute_adaptive_challenge,
+    execute_adaptive_red_team_loop,
+    execute_evolution_cycle,
     execute_retest,
     execute_seed_runs,
+    get_defense_candidates_for_assessment,
+    get_defense_history_for_assessment,
+    rollback_defense_for_assessment,
     run_tamper_demonstration,
     verify_evidence_chain,
 )
@@ -319,7 +325,8 @@ def select_assessment_target(
 
 @router.post("/assessments/{assessment_id}/runs", summary="Start assessment runs")
 def start_assessment_runs(
-    assessment_id: str = PathParam(..., description="Assessment identifier")
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    mode: Optional[str] = Query("deterministic_simulation", description="Execution mode: 'deterministic_simulation' or 'real_sandbox'"),
 ) -> Dict[str, Any]:
     """Execute the seed attack benchmark suite against the configured target."""
     asmt = STORE.get_assessment(assessment_id)
@@ -332,7 +339,7 @@ def start_assessment_runs(
             detail="No target selected. Call POST /assessments/{id}/target before executing runs.",
         )
 
-    executed_runs = execute_seed_runs(assessment_id)
+    executed_runs = execute_seed_runs(assessment_id, execution_mode=mode or "deterministic_simulation")
     return {
         "assessment_id": assessment_id,
         "status": "completed",
@@ -451,13 +458,82 @@ def toggle_assessment_defense(
         raise HTTPException(status_code=404, detail=str(exc))
 
 
+@router.post("/assessments/{assessment_id}/defenses/evolve", summary="Evolve defenses based on exploit findings")
+def evolve_defenses(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Execute dynamic defense evolution loop: generates candidates, evaluates in isolation, promotes if accepted."""
+    try:
+        result = execute_evolution_cycle(assessment_id)
+        return result
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Evolution error: {exc}")
+
+
+@router.get("/assessments/{assessment_id}/defenses/candidates", summary="List proposed defense candidates")
+def list_defense_candidates(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> List[Dict[str, Any]]:
+    """Retrieve all proposed defense candidates and evaluation scorecards for target."""
+    try:
+        candidates = get_defense_candidates_for_assessment(assessment_id)
+        return candidates
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+@router.post("/assessments/{assessment_id}/defenses/candidates/{candidate_id}/apply", summary="Apply candidate defense")
+def apply_defense_candidate(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    candidate_id: str = PathParam(..., description="Candidate identifier"),
+) -> Dict[str, Any]:
+    """Promote an evaluated candidate defense to the active policy version."""
+    try:
+        promoted = apply_defense_candidate_for_assessment(assessment_id, candidate_id)
+        return promoted
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.post("/assessments/{assessment_id}/defenses/rollback", summary="Rollback defense policy version")
+def rollback_defense(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Roll back active defense policy to parent or previous version."""
+    try:
+        restored = rollback_defense_for_assessment(assessment_id)
+        return restored
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+    except ValueError as exc:
+        raise HTTPException(status_code=400, detail=str(exc))
+
+
+@router.get("/assessments/{assessment_id}/defenses/history", summary="Get defense policy version history")
+def get_defense_history(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Retrieve complete policy version history and active snapshot for assessment target."""
+    try:
+        history_info = get_defense_history_for_assessment(assessment_id)
+        return history_info
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
 # ---------------------------------------------------------------------------
 # 6. Adaptive Challenge & Retest
 # ---------------------------------------------------------------------------
 
 @router.post("/assessments/{assessment_id}/challenge", summary="Challenge configured defenses")
 def challenge_defenses(
-    assessment_id: str = PathParam(..., description="Assessment identifier")
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    mode: Optional[str] = Query("deterministic_simulation", description="Execution mode: 'deterministic_simulation' or 'real_sandbox'"),
+    use_model: bool = Query(False, description="Whether to use model-backed attack generation"),
 ) -> Dict[str, Any]:
     """Adaptive attacker feedback challenge: mutates blocked attacks and challenges active defenses."""
     asmt = STORE.get_assessment(assessment_id)
@@ -470,20 +546,49 @@ def challenge_defenses(
             detail="No initial runs found to challenge. Run initial tests before challenging defenses.",
         )
 
-    result = execute_adaptive_challenge(assessment_id)
+    result = execute_adaptive_challenge(
+        assessment_id,
+        execution_mode=mode or "deterministic_simulation",
+        use_model=use_model,
+    )
+    return result
+
+
+@router.post("/assessments/{assessment_id}/adaptive-loop", summary="Run multi-round adaptive red-team and defense loop")
+def run_adaptive_loop(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    max_rounds: int = Query(5, description="Maximum number of red-team rounds"),
+    mode: Optional[str] = Query("deterministic_offline", description="Target execution mode: 'deterministic_offline' or 'model_backed'"),
+    use_model: bool = Query(False, description="Whether attacker uses real model generation"),
+) -> Dict[str, Any]:
+    """Execute complete multi-round adaptive red-team and defense evolution loop."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    result = execute_adaptive_red_team_loop(
+        asmt_id=assessment_id,
+        max_rounds=max_rounds,
+        target_execution_mode=mode or "deterministic_offline",
+        attacker_use_model=use_model,
+    )
     return result
 
 
 @router.post("/assessments/{assessment_id}/retest", summary="Retest assessment defenses")
 def retest_assessment(
-    assessment_id: str = PathParam(..., description="Assessment identifier")
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    mode: Optional[str] = Query("deterministic_simulation", description="Execution mode: 'deterministic_simulation' or 'real_sandbox'"),
 ) -> Dict[str, Any]:
     """Run before-and-after retest evaluation comparing exploit rates and legitimate task pass rates."""
     asmt = STORE.get_assessment(assessment_id)
     if not asmt:
         raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
 
-    retest_result = execute_retest(assessment_id)
+    retest_result = execute_retest(
+        assessment_id,
+        execution_mode=mode or "deterministic_simulation",
+    )
     return retest_result
 
 

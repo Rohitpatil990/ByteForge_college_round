@@ -95,10 +95,20 @@ def run_agent(
     mode = "guarded" if guard_mode == "enforced" else "unguarded"
 
     # 4. Instantiate agent and run
+    target_execution_mode = (
+        scenario.get("target_execution_mode")
+        or scenario.get("config", {}).get("target_execution_mode")
+    )
+    target_model_client = (
+        scenario.get("target_model_client")
+        or scenario.get("config", {}).get("target_model_client")
+    )
+
     agent = ConfiguredTargetAgent(
         target_config=target_config,
         model_name=scenario.get("config", {}).get("model", "gemini-2.5-flash"),
         temperature=scenario.get("config", {}).get("temperature", 0.2),
+        model_client=target_model_client,
     )
 
     user_msg = scenario_input["user_msg"]
@@ -123,7 +133,17 @@ def run_agent(
         role=role,
         simulated=simulated,
         simulate_error=simulate_error,
+        model_client=target_model_client,
+        target_execution_mode=target_execution_mode,
     )
+
+    # 4.5. Dynamic defense post-execution filter (e.g. D3 reply canary filter)
+    try:
+        import defense
+        if hasattr(defense, "filter_final_reply") and callable(defense.filter_final_reply):
+            defense.filter_final_reply(exec_result, def_cfg, target_config)
+    except Exception:
+        pass
 
     # 5. Build trace structure
     if exec_result.is_error:
@@ -168,9 +188,13 @@ def run_agent(
         "mode": mode,
         "guard_mode": guard_mode,
         "defenses": active_defenses,
+        "target_execution_mode": exec_result.target_execution_mode,
+        "is_target_model_invoked": exec_result.is_model_invoked,
         "config": {
             "model": agent.model_name,
             "temperature": agent.temperature,
+            "target_execution_mode": exec_result.target_execution_mode,
+            "is_target_model_invoked": exec_result.is_model_invoked,
         },
         "input": scenario_input,
         "steps": exec_result.steps,

@@ -230,9 +230,11 @@ class TestGuardrailAndP0Acceptance(unittest.TestCase):
             "defense_config": {"D1": True},
             "guard_mode": "enforced",
         }
-        res = check_guard(tool_attempt, context, policy={"send_email": None}, is_sensitive=True)
+        with self.assertLogs("agentbreak.guard", level="ERROR") as cm:
+            res = check_guard(tool_attempt, context, policy={"send_email": None}, is_sensitive=True)
         self.assertEqual(res["verdict"], "deny")
         self.assertEqual(res["rule"], "guard.error")
+        self.assertTrue(any("send_email" in log for log in cm.output))
 
     def test_guard_denies_send_email_when_allowed_domains_absent(self):
         """Guard fails closed and denies send_email when allowed_domains is absent or empty."""

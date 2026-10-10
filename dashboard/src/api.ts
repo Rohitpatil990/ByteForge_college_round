@@ -3,7 +3,10 @@ import {
   AssessmentSummary,
   ChainVerification,
   Defense,
+  DefenseCandidate,
+  EvolutionResult,
   Finding,
+  PolicyVersion,
   Run,
   TargetConfig,
 } from './types';
@@ -61,9 +64,9 @@ export const api = {
         body: JSON.stringify({ target_id }),
       }
     ),
-  startRuns: (id: string) =>
+  startRuns: (id: string, mode: string = 'real_sandbox') =>
     request<{ assessment_id: string; runs_executed: number; runs: Run[] }>(
-      `/assessments/${id}/runs`,
+      `/assessments/${id}/runs?mode=${mode}`,
       { method: 'POST' }
     ),
   getRuns: (id: string) => request<Run[]>(`/assessments/${id}/runs`),
@@ -74,10 +77,28 @@ export const api = {
   getDefenses: (id: string) => request<Defense[]>(`/assessments/${id}/defenses`),
   toggleDefense: (id: string, defense_id: string) =>
     request<Defense>(`/assessments/${id}/defenses/${defense_id}/toggle`, { method: 'POST' }),
-  challengeDefenses: (id: string) =>
-    request<any>(`/assessments/${id}/challenge`, { method: 'POST' }),
-  retestAssessment: (id: string) =>
-    request<any>(`/assessments/${id}/retest`, { method: 'POST' }),
+  challengeDefenses: (id: string, mode: string = 'real_sandbox', useModel: boolean = false) =>
+    request<any>(`/assessments/${id}/challenge?mode=${mode}&use_model=${useModel}`, { method: 'POST' }),
+  retestAssessment: (id: string, mode: string = 'real_sandbox') =>
+    request<any>(`/assessments/${id}/retest?mode=${mode}`, { method: 'POST' }),
+  evolveDefenses: (id: string) =>
+    request<EvolutionResult>(`/assessments/${id}/defenses/evolve`, { method: 'POST' }),
+  runAdaptiveLoop: (id: string, maxRounds: number = 5, mode: string = 'deterministic_offline', useModel: boolean = false) =>
+    request<any>(`/assessments/${id}/adaptive-loop?max_rounds=${maxRounds}&mode=${mode}&use_model=${useModel}`, {
+      method: 'POST',
+    }),
+  getDefenseCandidates: (id: string) =>
+    request<DefenseCandidate[]>(`/assessments/${id}/defenses/candidates`),
+  applyDefenseCandidate: (id: string, candidateId: string) =>
+    request<PolicyVersion>(`/assessments/${id}/defenses/candidates/${candidateId}/apply`, {
+      method: 'POST',
+    }),
+  rollbackDefense: (id: string) =>
+    request<PolicyVersion>(`/assessments/${id}/defenses/rollback`, { method: 'POST' }),
+  getDefenseHistory: (id: string) =>
+    request<{ target_id: string; active_version: PolicyVersion | null; history: PolicyVersion[] }>(
+      `/assessments/${id}/defenses/history`
+    ),
   getReport: (id: string) => request<AssessmentReport>(`/assessments/${id}/report`),
   verifyChain: (id: string) =>
     request<ChainVerification>(`/assessments/${id}/verify-chain`, { method: 'POST' }),
