@@ -433,6 +433,28 @@ class TestAgentExecutionAndTraces(unittest.TestCase):
         self.assertEqual(tamper_res["broken_at"], "r_chain_1")
         self.assertIn("Tamper detected", tamper_res["details"])
 
+    def test_verify_trace_chain_accepts_str_and_path(self):
+        """Verify verify_trace_chain accepts both str and Path and yields identical results."""
+        for i in range(2):
+            scenario = {
+                "run_id": f"r_str_path_{i}",
+                "attack_id": f"attack_str_path_{i}",
+                "kind": "seed",
+                "variant_source": None,
+                "parent_run_id": None,
+                "round": 0,
+                "attacker_inputs": None,
+                "input": {"user_msg": f"Task {i}", "docs": []},
+            }
+            run_agent(scenario, target_config=self.config)
+
+        res_path = verify_trace_chain(self.traces_dir)
+        res_str = verify_trace_chain(str(self.traces_dir))
+
+        self.assertEqual(res_path, res_str)
+        self.assertTrue(res_path["valid"])
+        self.assertEqual(res_path["total_traces"], 2)
+
 
 class TestFix3InputCompatibility(unittest.TestCase):
     """Test Fix 3: Canonical scenario.input, legacy initial_input, precedence, and defaults."""
