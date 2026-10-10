@@ -1,22 +1,52 @@
 """AgentBreak API Routes.
 
-Implements shared endpoints:
+Implements all frozen P0 endpoints:
 - GET /health
 - GET /target/configs
+- POST /assessments
+- GET /assessments
+- GET /assessments/{id}
 - POST /assessments/{id}/target
+- POST /assessments/{id}/runs
+- GET /assessments/{id}/runs
+- GET /runs/{run_id}
+- GET /assessments/{id}/runs/{run_id}
+- GET /assessments/{id}/findings
+- GET /findings
+- GET /defenses
+- GET /assessments/{id}/defenses
+- POST /defenses/{defense_id}/toggle
+- POST /assessments/{id}/defenses/{defense_id}/toggle
+- POST /assessments/{id}/challenge
+- POST /assessments/{id}/retest
+- GET /assessments/{id}/report
+- POST /assessments/{id}/verify-chain
+- POST /assessments/{id}/tamper-test
+- GET /recorded/runs
 """
 
+import json
 import os
 from pathlib import Path
 from typing import Any, Dict, List, Optional
 
 import yaml
-from fastapi import APIRouter, HTTPException, Path as PathParam
+from fastapi import APIRouter, HTTPException, Path as PathParam, Query
 from pydantic import BaseModel, Field
+
+from api.store import (
+    RECORDED_DATA_PATH,
+    STORE,
+    build_assessment_report,
+    execute_adaptive_challenge,
+    execute_retest,
+    execute_seed_runs,
+    run_tamper_demonstration,
+    verify_evidence_chain,
+)
 
 router = APIRouter()
 
-# Resolve project root and target configs directory
 PROJECT_ROOT = Path(__file__).resolve().parent.parent
 DEFAULT_CONFIGS_DIR = PROJECT_ROOT / "target" / "configs"
 
@@ -28,6 +58,10 @@ def get_configs_dir() -> Path:
         return candidate if candidate.is_absolute() else PROJECT_ROOT / candidate
     return DEFAULT_CONFIGS_DIR
 
+
+# ---------------------------------------------------------------------------
+# Request / Response Models
+# ---------------------------------------------------------------------------
 
 class TargetConfigSummary(BaseModel):
     id: str
@@ -48,11 +82,33 @@ class TargetSelectionResponse(BaseModel):
     message: str
 
 
+class CreateAssessmentRequest(BaseModel):
+    name: Optional[str] = Field(None, description="Optional friendly assessment name")
+    target_id: Optional[str] = Field(None, description="Optional target ID to pre-select")
+
+
+class AssessmentSummary(BaseModel):
+    id: str
+    name: str
+    target_id: Optional[str] = None
+    target_name: Optional[str] = None
+    status: str
+    created_at: str
+    updated_at: str
+    runs_count: int
+    findings_count: int
+
+
+# ---------------------------------------------------------------------------
+# Target Config Loader
+# ---------------------------------------------------------------------------
+
 def load_target_configs(configs_dir: Optional[Path] = None) -> List[Dict[str, Any]]:
     """Scan and validate target configurations from YAML files in the configs directory.
 
-    Returns a list of dicts with keys: id, name, valid, validation_error.
-    Gracefully handles malformed YAML and missing required fields without crashing.
+    Shows demo-company-assistant first.
+    Marks target selectable only if validation succeeds.
+    Returns real validation error when invalid.
     """
     directory = configs_dir or get_configs_dir()
     results: List[Dict[str, Any]] = []
@@ -108,7 +164,7 @@ def load_target_configs(configs_dir: Optional[Path] = None) -> List[Dict[str, An
             })
             continue
 
-        # Validate basic schema fields
+        # Validate required schema fields
         validation_error: Optional[str] = None
         if "role" not in data or not isinstance(data["role"], str):
             validation_error = "Missing or invalid 'role' field"
@@ -124,20 +180,24 @@ def load_target_configs(configs_dir: Optional[Path] = None) -> List[Dict[str, An
             "validation_error": validation_error,
         })
 
+    # Ensure demo-company-assistant is shown first
+    results.sort(key=lambda c: 0 if c["id"] == "demo-company-assistant" else 1)
     return results
 
 
 # ---------------------------------------------------------------------------
-# API Endpoints
+# 1. Health & Configs
 # ---------------------------------------------------------------------------
 
 @router.get("/health", summary="Health check")
-def get_health() -> Dict[str, str]:
-    """Return API health status."""
+def get_health() -> Dict[str, Any]:
+    """Return API health and system readiness."""
     return {
         "status": "ok",
         "service": "AgentBreak API",
         "version": "0.1.0",
+        "framework": "FastAPI",
+        "contract": "v2 frozen",
     }
 
 
@@ -145,6 +205,68 @@ def get_health() -> Dict[str, str]:
 def list_target_configs() -> List[Dict[str, Any]]:
     """List all available target configurations and their validation status."""
     return load_target_configs()
+
+
+# ---------------------------------------------------------------------------
+# 2. Assessment Management
+# ---------------------------------------------------------------------------
+
+@router.post("/assessments", summary="Create new assessment")
+def create_assessment(request: Optional[CreateAssessmentRequest] = None) -> Dict[str, Any]:
+    """Create a new security assessment instance."""
+    name = request.name if request else None
+    target_id = request.target_id if request else None
+
+    # If target_id provided, validate it first
+    target_name = None
+    if target_id:
+        configs = load_target_configs()
+        matching = [c for c in configs if c["id"] == target_id]
+        if not matching:
+            raise HTTPException(status_code=404, detail=f"Target configuration '{target_id}' not found.")
+        if not matching[0]["valid"]:
+            raise HTTPException(
+                status_code=400,
+                detail=f"Target configuration '{target_id}' is invalid: {matching[0]['validation_error']}",
+            )
+        target_name = matching[0]["name"]
+
+    asmt = STORE.create_assessment(name=name, target_id=target_id)
+    if target_name:
+        asmt["target_name"] = target_name
+        STORE._persist(asmt["id"])
+    return asmt
+
+
+@router.get("/assessments", summary="List all assessments")
+def list_assessments() -> List[Dict[str, Any]]:
+    """List summary information for all assessments."""
+    asmts = STORE.list_assessments()
+    summaries = []
+    for a in asmts:
+        summaries.append({
+            "id": a["id"],
+            "name": a["name"],
+            "target_id": a.get("target_id"),
+            "target_name": a.get("target_name"),
+            "status": a.get("status"),
+            "created_at": a.get("created_at"),
+            "updated_at": a.get("updated_at"),
+            "runs_count": len(a.get("runs", [])),
+            "findings_count": len(a.get("findings", [])),
+        })
+    # Sort newest first
+    summaries.sort(key=lambda s: s["created_at"], reverse=True)
+    return summaries
+
+
+@router.get("/assessments/{assessment_id}", summary="Get assessment details")
+def get_assessment(assessment_id: str = PathParam(..., description="Assessment identifier")) -> Dict[str, Any]:
+    """Retrieve full assessment record by ID."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+    return asmt
 
 
 @router.post(
@@ -156,12 +278,14 @@ def select_assessment_target(
     assessment_id: str = PathParam(..., description="Assessment identifier"),
     request: TargetSelectionRequest = ...,
 ) -> TargetSelectionResponse:
-    """Select a target configuration for an assessment run.
+    """Select a target configuration for an assessment run."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        # Create it automatically if needed so integration flows don't stumble
+        asmt = STORE.create_assessment(name=f"Assessment {assessment_id}")
+        asmt["id"] = assessment_id
+        STORE.assessments[assessment_id] = asmt
 
-    Validates that the requested target exists and is valid.
-    Integration note: Returns target selection confirmation. Full assessment orchestration
-    requires P1 (sandbox), P2 (attacker/analyzer), and P3 (defense/eval) integration.
-    """
     configs = load_target_configs()
     matching = [cfg for cfg in configs if cfg["id"] == request.target_id]
 
@@ -178,13 +302,249 @@ def select_assessment_target(
             detail=f"Target configuration '{request.target_id}' is invalid: {target['validation_error']}",
         )
 
+    STORE.update_target(assessment_id, target["id"], target["name"])
+
     return TargetSelectionResponse(
         assessment_id=assessment_id,
         target_id=target["id"],
         target_name=target["name"],
         status="target_selected",
-        message=(
-            "Target selected. Agent sandbox (P1), attacker/analyzer (P2), and "
-            "defense/eval (P3) are pending integration."
-        ),
+        message="Target selected successfully. Ready for attack execution.",
     )
+
+
+# ---------------------------------------------------------------------------
+# 3. Runs & Traces
+# ---------------------------------------------------------------------------
+
+@router.post("/assessments/{assessment_id}/runs", summary="Start assessment runs")
+def start_assessment_runs(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Execute the seed attack benchmark suite against the configured target."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    if not asmt.get("target_id"):
+        raise HTTPException(
+            status_code=400,
+            detail="No target selected. Call POST /assessments/{id}/target before executing runs.",
+        )
+
+    executed_runs = execute_seed_runs(assessment_id)
+    return {
+        "assessment_id": assessment_id,
+        "status": "completed",
+        "runs_executed": len(executed_runs),
+        "runs": executed_runs,
+    }
+
+
+@router.get("/assessments/{assessment_id}/runs", summary="List runs for an assessment")
+def list_assessment_runs(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> List[Dict[str, Any]]:
+    """Retrieve all execution runs associated with an assessment."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+    return asmt.get("runs", [])
+
+
+@router.get("/assessments/{assessment_id}/runs/{run_id}", summary="Get run details and trace")
+def get_assessment_run_detail(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    run_id: str = PathParam(..., description="Run identifier"),
+) -> Dict[str, Any]:
+    """Retrieve detailed run metadata and raw trace steps."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    matching_run = next((r for r in asmt.get("runs", []) if r.get("run_id") == run_id), None)
+    if not matching_run:
+        raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found in assessment '{assessment_id}'.")
+    return matching_run
+
+
+@router.get("/runs/{run_id}", summary="Get run by run ID across all assessments")
+def get_run_by_id(run_id: str = PathParam(..., description="Run identifier")) -> Dict[str, Any]:
+    """Global lookup for a run across all stored assessments."""
+    for asmt in STORE.list_assessments():
+        for r in asmt.get("runs", []):
+            if r.get("run_id") == run_id:
+                return r
+    raise HTTPException(status_code=404, detail=f"Run '{run_id}' not found.")
+
+
+# ---------------------------------------------------------------------------
+# 4. Findings
+# ---------------------------------------------------------------------------
+
+@router.get("/assessments/{assessment_id}/findings", summary="List findings for an assessment")
+def list_assessment_findings(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    source: Optional[str] = Query(None, description="Optional filter by source (seed, generated, recorded)"),
+) -> List[Dict[str, Any]]:
+    """Retrieve security findings for an assessment, preserving finding source."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    findings = asmt.get("findings", [])
+    if source:
+        findings = [f for f in findings if f.get("source") == source]
+    return findings
+
+
+@router.get("/findings", summary="List all findings across assessments")
+def list_all_findings() -> List[Dict[str, Any]]:
+    """Global lookup of all findings recorded across assessments."""
+    all_f = []
+    for a in STORE.list_assessments():
+        all_f.extend(a.get("findings", []))
+    return all_f
+
+
+# ---------------------------------------------------------------------------
+# 5. Defenses Management
+# ---------------------------------------------------------------------------
+
+@router.get("/defenses", summary="List global default defenses")
+def list_global_defenses() -> List[Dict[str, Any]]:
+    """List available defense configurations and their default status."""
+    return DEFAULT_DEFENSES
+
+
+@router.get("/assessments/{assessment_id}/defenses", summary="List defenses for assessment")
+def list_assessment_defenses(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> List[Dict[str, Any]]:
+    """List active defense controls and status for a specific assessment."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+    return asmt.get("defenses", [])
+
+
+@router.post("/defenses/{defense_id}/toggle", summary="Toggle defense status globally")
+def toggle_global_defense(defense_id: str = PathParam(..., description="Defense identifier")) -> Dict[str, Any]:
+    """Toggle defense status in the default defense set."""
+    for d in DEFAULT_DEFENSES:
+        if d["id"] == defense_id:
+            d["status"] = "disabled" if d["status"] == "enforced" else "enforced"
+            return d
+    raise HTTPException(status_code=404, detail=f"Defense '{defense_id}' not found.")
+
+
+@router.post("/assessments/{assessment_id}/defenses/{defense_id}/toggle", summary="Toggle defense for assessment")
+def toggle_assessment_defense(
+    assessment_id: str = PathParam(..., description="Assessment identifier"),
+    defense_id: str = PathParam(..., description="Defense identifier"),
+) -> Dict[str, Any]:
+    """Toggle a defense on/off for a specific assessment."""
+    try:
+        updated = STORE.toggle_defense(assessment_id, defense_id)
+        return updated
+    except KeyError as exc:
+        raise HTTPException(status_code=404, detail=str(exc))
+
+
+# ---------------------------------------------------------------------------
+# 6. Adaptive Challenge & Retest
+# ---------------------------------------------------------------------------
+
+@router.post("/assessments/{assessment_id}/challenge", summary="Challenge configured defenses")
+def challenge_defenses(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Adaptive attacker feedback challenge: mutates blocked attacks and challenges active defenses."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    if not asmt.get("runs"):
+        raise HTTPException(
+            status_code=400,
+            detail="No initial runs found to challenge. Run initial tests before challenging defenses.",
+        )
+
+    result = execute_adaptive_challenge(assessment_id)
+    return result
+
+
+@router.post("/assessments/{assessment_id}/retest", summary="Retest assessment defenses")
+def retest_assessment(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Run before-and-after retest evaluation comparing exploit rates and legitimate task pass rates."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    retest_result = execute_retest(assessment_id)
+    return retest_result
+
+
+# ---------------------------------------------------------------------------
+# 7. Final Report
+# ---------------------------------------------------------------------------
+
+@router.get("/assessments/{assessment_id}/report", summary="Retrieve final assessment report")
+def get_assessment_report(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Generate and return the full security assessment report from saved run data."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    report = build_assessment_report(assessment_id)
+    return report
+
+
+# ---------------------------------------------------------------------------
+# 8. Evidence Hash Chain & Tamper Verification
+# ---------------------------------------------------------------------------
+
+@router.post("/assessments/{assessment_id}/verify-chain", summary="Verify evidence hash chain")
+def verify_chain(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Verify cryptographic integrity of all logged execution evidence."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    verification = verify_evidence_chain(assessment_id)
+    return verification
+
+
+@router.post("/assessments/{assessment_id}/tamper-test", summary="Run isolated tamper demonstration")
+def tamper_test(
+    assessment_id: str = PathParam(..., description="Assessment identifier")
+) -> Dict[str, Any]:
+    """Test cryptographic tamper detection on a disposable copy of the evidence chain."""
+    asmt = STORE.get_assessment(assessment_id)
+    if not asmt:
+        raise HTTPException(status_code=404, detail=f"Assessment '{assessment_id}' not found.")
+
+    result = run_tamper_demonstration(assessment_id)
+    return result
+
+
+# ---------------------------------------------------------------------------
+# 9. Recorded Fixture Endpoint (Offline/Backup Inspection)
+# ---------------------------------------------------------------------------
+
+@router.get("/recorded/runs", summary="Get recorded baseline run fixture")
+def get_recorded_fixture() -> Dict[str, Any]:
+    """Return the sanitized recorded demo fixture for offline presentation inspection."""
+    if not RECORDED_DATA_PATH.exists():
+        raise HTTPException(status_code=404, detail="Recorded fixture not found.")
+    try:
+        with open(RECORDED_DATA_PATH, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as exc:
+        raise HTTPException(status_code=500, detail=f"Failed to read recorded fixture: {exc}")
