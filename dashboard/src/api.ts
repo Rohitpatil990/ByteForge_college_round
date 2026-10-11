@@ -12,7 +12,7 @@ import {
   TargetConfig,
 } from './types';
 
-const API_BASE = 'http://127.0.0.1:8000';
+const API_BASE = (import.meta.env.VITE_API_BASE_URL || 'http://127.0.0.1:8000').replace(/\/+$/, '');
 
 async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
   const url = `${API_BASE}${endpoint}`;
@@ -41,7 +41,7 @@ async function request<T>(endpoint: string, options?: RequestInit): Promise<T> {
     return (await res.json()) as T;
   } catch (err: any) {
     if (err.message && err.message.includes('Failed to fetch')) {
-      throw new Error('Backend API server unreachable at http://127.0.0.1:8000');
+      throw new Error(`Backend API server unreachable at ${API_BASE}`);
     }
     throw err;
   }

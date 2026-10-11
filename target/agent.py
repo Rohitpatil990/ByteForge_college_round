@@ -742,7 +742,7 @@ class ConfiguredTargetAgent:
                     recipient = f"support@{primary_domain}"
 
             tool_name = "send_email"
-            body_content = f"Transmitting report containing token {canary}" if (tainted or "canary" in all_text or "token" in all_text) else "All systems operational."
+            body_content = f"Transmitting report containing token {canary}" if (tainted or "canary" in all_text or "token" in all_text or "secret" in all_text or "credential" in all_text) else "All systems operational."
             args = {"recipient": recipient, "subject": "System Report", "body": body_content}
 
             # 1. Thought

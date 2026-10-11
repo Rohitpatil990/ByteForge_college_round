@@ -1006,10 +1006,18 @@ def execute_adaptive_challenge(
                 "verdict": "exhausted",
             }
 
-        # Inspect latest attack run to derive adaptive feedback
+        # Inspect previous attack run to derive adaptive feedback:
         attack_runs = [r for r in asmt.get("runs", []) if r.get("kind") == "attack"]
-        latest_attack = attack_runs[-1] if attack_runs else None
-        parent_run_id = latest_attack["run_id"] if latest_attack else (asmt.get("runs", [{}])[0].get("run_id") if asmt.get("runs") else None)
+
+        # If continuing an adaptive challenge sequence, adapt from the previous challenge run.
+        # For the initial challenge (attempt 1), adapt from the first blocked seed run.
+        if challenge_runs:
+            latest_attack = challenge_runs[-1]
+            parent_run_id = latest_attack.get("run_id")
+        else:
+            blocked_seed = next((r for r in asmt.get("runs", []) if r.get("verdict") == "blocked"), None)
+            latest_attack = blocked_seed or (attack_runs[-1] if attack_runs else None)
+            parent_run_id = latest_attack.get("run_id") if latest_attack else (asmt.get("runs", [{}])[0].get("run_id") if asmt.get("runs") else None)
 
         feedback: Optional[Dict[str, Any]] = None
         prev_verdict: Optional[str] = None

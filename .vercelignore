@@ -1,0 +1,9 @@
+.git
+.venv
+data/generated
+run1
+__pycache__
+*.pyc
+.env
+.env.local
+.env.*.local
