@@ -111,4 +111,10 @@ export const api = {
       { method: 'POST' }
     ),
   getRecordedFixture: () => request<any>('/recorded/runs'),
+  checkExtensionHealth: () => request<any>('/extension/health'),
+  scanExtensionExcerpt: (payload: { content: string; consent_given: boolean; target_id?: string; assessment_id?: string; context_url?: string }) =>
+    request<any>('/extension/scan', {
+      method: 'POST',
+      body: JSON.stringify(payload),
+    }),
 };

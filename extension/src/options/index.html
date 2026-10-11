@@ -1,0 +1,94 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentBreak Sentinel - Settings & Privacy</title>
+  <link rel="stylesheet" href="./options.css">
+</head>
+<body>
+  <div class="container">
+    <div class="card">
+      <div class="header">
+        <img src="/icons/icon48.png" alt="Sentinel Logo">
+        <div>
+          <h1>AgentBreak Sentinel Settings</h1>
+          <p class="help-text">Configure backend connectivity, local analysis preferences, and privacy controls.</p>
+        </div>
+      </div>
+
+      <form id="settings-form">
+        <div class="form-group">
+          <label for="api-base-url">AgentBreak API Base URL:</label>
+          <input type="text" id="api-base-url" placeholder="http://127.0.0.1:8000">
+          <p class="help-text">The REST API endpoint of your local or remote AgentBreak FastAPI server.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="target-id">Default Target Agent Profile:</label>
+          <input type="text" id="target-id" value="demo-company-assistant">
+          <p class="help-text">Target configuration used to extract synthetic canary tokens and domain policies.</p>
+        </div>
+
+        <div class="form-group">
+          <label for="active-asmt-id">Active Assessment ID (Optional):</label>
+          <input type="text" id="active-asmt-id" placeholder="e.g. asmt-xxxxxxxxxxxx">
+          <p class="help-text">If set, approved scans will be linked into this assessment session in the dashboard.</p>
+        </div>
+
+        <div class="form-group">
+          <div class="checkbox-group">
+            <input type="checkbox" id="chk-offline-mode">
+            <label for="chk-offline-mode" style="margin-bottom: 0; cursor: pointer;">
+              Enable Full Offline Mode (Never send requests to backend)
+            </label>
+          </div>
+          <p class="help-text">In offline mode, all scans use local browser heuristic rules exclusively.</p>
+        </div>
+
+        <button type="submit" id="btn-save-settings">Save Settings</button>
+        <span id="save-status" style="margin-left: 12px; font-weight: 600; color: #16a34a; display: none;">✓ Settings saved!</span>
+      </form>
+    </div>
+
+    <!-- Supported Contexts -->
+    <div class="card">
+      <h2>Explicitly Supported Contexts</h2>
+      <p class="help-text">AgentBreak Sentinel only operates on verified and tested AI interfaces:</p>
+      
+      <ul class="site-list">
+        <li class="site-item">
+          <span><b>AgentBreak Local Test Fixture:</b> Synthetic Demo Chat (file://*demo_chat.html)</span>
+          <span class="badge-tag">Supported</span>
+        </li>
+        <li class="site-item">
+          <span><b>Local Development Servers:</b> http://localhost:* & http://127.0.0.1:*</span>
+          <span class="badge-tag">Supported</span>
+        </li>
+        <li class="site-item">
+          <span><b>ChatGPT Web Interface:</b> https://chatgpt.com/*</span>
+          <span class="badge-tag">Supported</span>
+        </li>
+        <li class="site-item">
+          <span><b>Claude Web Interface:</b> https://claude.ai/*</span>
+          <span class="badge-tag">Supported</span>
+        </li>
+      </ul>
+      <p class="help-text" style="margin-top: 10px;">All other websites will display as "Unsupported or Idle" to respect user privacy and avoid false assumptions.</p>
+    </div>
+
+    <!-- Privacy Commitments -->
+    <div class="card">
+      <h2>Privacy & Architecture Commitments</h2>
+      <div class="alert-box">
+        <b>Zero Passive Tracking:</b> AgentBreak Sentinel does NOT log your browsing history, intercept network traffic, collect passwords, or read session cookies. All inspections are explicitly initiated by you via the extension popup.
+      </div>
+      <p class="help-text" style="margin-top: 12px;">
+        <b>Important Security Distinction:</b> The Sentinel extension performs prompt-level pattern analysis. It can identify high-risk phrasing like "ignore all rules" or detect canary tokens. However, only the full AgentBreak Sandbox with deterministic guards can verify whether an attack succeeded against a real tool execution policy.
+      </p>
+    </div>
+  </div>
+
+  <script type="module" src="./options.ts"></script>
+</body>
+</html>

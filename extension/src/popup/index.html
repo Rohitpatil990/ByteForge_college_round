@@ -1,0 +1,103 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>AgentBreak Sentinel</title>
+  <link rel="stylesheet" href="./popup.css">
+</head>
+<body>
+  <div class="popup-container">
+    <!-- Header -->
+    <header class="header">
+      <div class="logo-group">
+        <img src="/icons/icon32.png" alt="Sentinel Icon" class="logo-icon" id="sentinel-logo">
+        <span class="logo-title">AgentBreak Sentinel</span>
+      </div>
+      <div class="header-actions">
+        <button id="btn-open-options" class="btn-icon" title="Extension Settings">⚙ Options</button>
+      </div>
+    </header>
+
+    <!-- Context Status Card -->
+    <div class="status-card" id="context-status-card">
+      <div class="status-row">
+        <span class="status-label">Active Context:</span>
+        <span class="context-tag tag-supported" id="context-tag">Checking tab...</span>
+      </div>
+      <div class="capture-controls">
+        <button id="btn-capture-selection" class="btn-secondary btn-sm" style="flex: 1;">Capture Selection</button>
+        <button id="btn-inspect-messages" class="btn-secondary btn-sm" style="flex: 1;">Inspect Messages</button>
+      </div>
+    </div>
+
+    <!-- Content Editor & Redaction Section -->
+    <div class="editor-section">
+      <div class="section-label-row">
+        <label for="input-content" class="section-label">Inspected Content Preview:</label>
+        <button id="btn-redact" class="btn-secondary btn-sm" title="Redact Synthetic Canaries & Sensitive Info">🛡 Redact Canaries</button>
+      </div>
+      <textarea id="input-content" class="content-textarea" placeholder="Highlight text on the page and click 'Capture Selection', or paste text to inspect..."></textarea>
+      <div class="editor-toolbar">
+        <span class="char-counter" id="char-counter">0 / 16,000 characters</span>
+        <button id="btn-clear-input" class="btn-icon" style="padding: 2px 6px;">Clear</button>
+      </div>
+    </div>
+
+    <!-- User Consent Box -->
+    <div class="consent-box" id="consent-box">
+      <input type="checkbox" id="chk-consent" class="consent-checkbox" checked>
+      <label for="chk-consent">
+        <b>User Consent:</b> I confirm and approve sending this excerpt for security inspection. No passwords, cookies, or session headers will be transmitted.
+      </label>
+    </div>
+
+    <!-- Primary Action Controls -->
+    <div class="action-row">
+      <button id="btn-scan-local" class="btn-secondary" title="Scan offline with 5 explainable heuristic rules">
+        Scan Locally (Offline)
+      </button>
+      <button id="btn-analyze-backend" class="btn-primary" title="Submit to AgentBreak backend engine">
+        Analyze with AgentBreak
+      </button>
+    </div>
+
+    <!-- Results Section -->
+    <div id="results-container" class="results-card" style="display: none;">
+      <div class="risk-banner" id="risk-banner">
+        <span id="risk-title">STATUS: CLEAN</span>
+        <span id="risk-score-badge" class="badge badge-LOW">LOW RISK</span>
+      </div>
+      
+      <p id="results-summary" class="explanation-text"></p>
+
+      <div class="rule-matches-list" id="rule-matches-list">
+        <!-- Rendered dynamically -->
+      </div>
+
+      <div id="backend-link-box" style="display: none; padding-top: 6px;">
+        <a id="link-dashboard-asmt" href="#" target="_blank" style="color: #2563eb; font-weight: 600; font-size: 11px; text-decoration: none;">
+          ↗ Open Linked Assessment in Dashboard
+        </a>
+      </div>
+
+      <div class="disclaimer-badge">
+        ℹ Heuristic pattern analysis evaluates text syntax; it does not prove an exploit executed without an agent trace.
+      </div>
+    </div>
+
+    <!-- Loading State -->
+    <div id="loading-state" class="state-box" style="display: none;">
+      <span class="spinner"></span> Running AgentBreak analysis...
+    </div>
+
+    <!-- Footer -->
+    <footer class="footer">
+      <span id="footer-storage-note">Ephemeral memory • User-initiated</span>
+      <button id="btn-clear-local" class="btn-icon" title="Clear local extension data">Clear Data</button>
+    </footer>
+  </div>
+
+  <script type="module" src="./popup.ts"></script>
+</body>
+</html>

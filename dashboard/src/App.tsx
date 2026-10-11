@@ -11,6 +11,7 @@ import { ChallengeView } from './components/ChallengeView';
 import { RetestView } from './components/RetestView';
 import { ReportView } from './components/ReportView';
 import { EvidenceChainView } from './components/EvidenceChainView';
+import { SentinelExtensionView } from './components/SentinelExtensionView';
 import {
   Shield,
   Target,
@@ -25,6 +26,7 @@ import {
   Plus,
   RefreshCw,
   ChevronRight,
+  Compass,
 } from 'lucide-react';
 
 export const App: React.FC = () => {
@@ -226,6 +228,8 @@ export const App: React.FC = () => {
         return 'Security Report';
       case 'evidence':
         return 'Check Evidence';
+      case 'sentinel':
+        return 'Sentinel Extension';
       default:
         return 'Overview';
     }
@@ -363,6 +367,24 @@ export const App: React.FC = () => {
               >
                 <span className="sidebar-label">
                   <CheckCircle2 size={16} /> Check Evidence
+                </span>
+              </button>
+            </div>
+          </div>
+
+          {/* Navigation Group 4: Companion */}
+          <div>
+            <div className="nav-group-title">Companion</div>
+            <div className="nav-group-items">
+              <button
+                className={`sidebar-item ${activeTab === 'sentinel' ? 'active' : ''}`}
+                onClick={() => setActiveTab('sentinel')}
+              >
+                <span className="sidebar-label">
+                  <Compass size={16} /> Sentinel Extension
+                </span>
+                <span style={{ fontSize: '0.68rem', padding: '1px 5px', borderRadius: '4px', background: '#dbeafe', color: '#1d4ed8', fontWeight: 700 }}>
+                  MV3
                 </span>
               </button>
             </div>
@@ -528,6 +550,10 @@ export const App: React.FC = () => {
 
               {activeTab === 'evidence' && (
                 <EvidenceChainView assessmentId={currentAssessment?.id || 'default'} />
+              )}
+
+              {activeTab === 'sentinel' && (
+                <SentinelExtensionView currentAssessmentId={currentAssessment?.id} />
               )}
             </>
           )}

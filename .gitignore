@@ -51,6 +51,8 @@ reports/
 .idea/
 .DS_Store
 Thumbs.db
+scratch/
+extension/tests/*.js
 
 # Explicitly keep intentional fixtures
 !data/recorded/
