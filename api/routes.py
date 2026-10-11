@@ -667,3 +667,147 @@ def get_recorded_fixture() -> Dict[str, Any]:
             return json.load(f)
     except Exception as exc:
         raise HTTPException(status_code=500, detail=f"Failed to read recorded fixture: {exc}")
+
+
+# ---------------------------------------------------------------------------
+# 10. Browser Extension Sentinel Endpoints (Companion Integration)
+# ---------------------------------------------------------------------------
+
+class ExtensionScanRequest(BaseModel):
+    content: str = Field(..., min_length=1, max_length=16000, description="User-approved text snippet to inspect")
+    context_url: Optional[str] = Field(None, max_length=500, description="URL or origin where text was captured")
+    target_id: Optional[str] = Field("demo-company-assistant", description="Target configuration for canary extraction")
+    assessment_id: Optional[str] = Field(None, description="Optional active assessment ID to link findings")
+    consent_given: bool = Field(True, description="Explicit user consent confirmation")
+
+
+@router.get("/extension/health", summary="AgentBreak Sentinel extension integration health check")
+def extension_health() -> Dict[str, Any]:
+    """Check availability of Sentinel extension backend companion."""
+    from analyzer.heuristic_scanner import SCANNER_RULES
+    return {
+        "status": "healthy",
+        "companion": "AgentBreak Sentinel",
+        "version": "1.0.0",
+        "rules_count": len(SCANNER_RULES),
+        "supported_targets": ["demo-company-assistant"],
+        "privacy": {
+            "telemetry_collected": False,
+            "user_initiated_only": True,
+            "plain_text_storage": False,
+            "retention": "ephemeral_in_memory",
+        },
+    }
+
+
+@router.get("/extension/download", summary="Download AgentBreak Sentinel Chrome Extension ZIP package")
+@router.get("/AgentBreak-Sentinel-Chrome-Extension.zip", summary="Direct download endpoint for Sentinel Chrome Extension ZIP")
+def download_sentinel_extension():
+    """Returns the compiled, loadable Sentinel Chrome Extension ZIP package."""
+    from fastapi.responses import FileResponse
+    repo_root = Path(__file__).resolve().parent.parent
+    candidates = [
+        repo_root / "dashboard" / "public" / "AgentBreak-Sentinel-Chrome-Extension.zip",
+        repo_root / "dashboard" / "dist" / "AgentBreak-Sentinel-Chrome-Extension.zip",
+        repo_root / "extension" / "dist" / "AgentBreak-Sentinel-Chrome-Extension.zip",
+    ]
+    zip_path = None
+    for c in candidates:
+        if c.is_file():
+            zip_path = c
+            break
+
+    if not zip_path:
+        try:
+            sys_path = str(repo_root)
+            if sys_path not in os.sys.path:
+                os.sys.path.insert(0, sys_path)
+            from extension.scripts.package_extension import package_sentinel_extension
+            zip_path = package_sentinel_extension()
+        except Exception as exc:
+            raise HTTPException(
+                status_code=404,
+                detail=f"Sentinel extension ZIP is not built yet: {exc}",
+            )
+
+    return FileResponse(
+        str(zip_path),
+        media_type="application/zip",
+        filename="AgentBreak-Sentinel-Chrome-Extension.zip",
+    )
+
+
+@router.post("/extension/scan", summary="Analyze user-approved text excerpt with Sentinel rules")
+def extension_scan(req: ExtensionScanRequest) -> Dict[str, Any]:
+    """Scan user-approved text snippet using explainable heuristic rules and canary detection."""
+    import uuid
+    from datetime import datetime, timezone
+    from analyzer.heuristic_scanner import scan_text_heuristics
+
+    if not req.consent_given:
+        raise HTTPException(
+            status_code=400,
+            detail="Explicit user consent is required before analyzing text with AgentBreak Sentinel.",
+        )
+
+    # Resolve target configuration for canary lookup
+    target_cfg = None
+    target_id = req.target_id or "demo-company-assistant"
+    configs_dir = get_configs_dir()
+    candidate_path = configs_dir / f"{target_id}.yaml"
+    if candidate_path.exists():
+        try:
+            with open(candidate_path, "r", encoding="utf-8") as f:
+                target_cfg = yaml.safe_load(f)
+        except Exception:
+            pass
+
+    # Run deterministic heuristic scanner
+    scan_result = scan_text_heuristics(req.content, target_config=target_cfg)
+
+    scan_id = f"ext-{uuid.uuid4().hex[:12]}"
+    now = datetime.now(timezone.utc).isoformat()
+    excerpt = req.content[:160] + ("..." if len(req.content) > 160 else "")
+
+    mitigations = []
+    for r in scan_result["rules_matched"]:
+        if r.get("mitigation") and r["mitigation"] not in mitigations:
+            mitigations.append(r["mitigation"])
+    if not mitigations:
+        mitigations.append("No immediate mitigation required for benign content. Continue monitoring.")
+
+    # If an active assessment was provided and exists, record the scan in assessment metadata
+    linked_asmt_id = None
+    if req.assessment_id:
+        asmt = STORE.get_assessment(req.assessment_id)
+        if asmt:
+            linked_asmt_id = req.assessment_id
+            ext_scans = asmt.setdefault("extension_scans", [])
+            ext_scans.append({
+                "scan_id": scan_id,
+                "timestamp": now,
+                "risk_level": scan_result["risk_level"],
+                "rules_matched_count": len(scan_result["rules_matched"]),
+                "context_url": req.context_url,
+            })
+            STORE._persist(req.assessment_id)
+
+    return {
+        "scan_id": scan_id,
+        "timestamp": now,
+        "status": "completed",
+        "risk_level": scan_result["risk_level"],
+        "content_length": len(req.content),
+        "sanitized_excerpt": excerpt,
+        "rules_matched": scan_result["rules_matched"],
+        "summary": scan_result["summary"],
+        "is_heuristic_only": True,
+        "is_trace_verified": False,
+        "linked_assessment_id": linked_asmt_id,
+        "mitigation_advice": mitigations,
+        "privacy_notice": (
+            "Analyzed in ephemeral memory. No cookies, passwords, or session tokens were captured. "
+            "This heuristic scan evaluates text patterns; it is not an agent execution exploit proof."
+        ),
+    }
+

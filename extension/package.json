@@ -1,0 +1,19 @@
+{
+  "name": "agentbreak-sentinel",
+  "version": "1.0.0",
+  "description": "AgentBreak Sentinel - AI Interaction Inspector and Prompt Injection Scanner",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "tsc && vite build",
+    "postbuild": "node scripts/package-extension.js",
+    "package": "node scripts/package-extension.js",
+    "pretest": "tsc src/scanner.ts --outDir tests --module ESNext --target ES2022 --moduleResolution bundler",
+    "test": "node --test tests/scanner.test.js"
+  },
+  "devDependencies": {
+    "@types/chrome": "^0.0.280",
+    "typescript": "^5.6.3",
+    "vite": "^5.4.10"
+  }
+}
